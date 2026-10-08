@@ -1,0 +1,15 @@
+# Configuration locale (contient des clés API)
+.mcp.json
+.claude/settings.local.json
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+
+# Node / Playwright
+node_modules/
+playwright-report/
+test-results/
