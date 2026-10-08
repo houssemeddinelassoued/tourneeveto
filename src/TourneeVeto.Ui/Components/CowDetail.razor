@@ -1,0 +1,62 @@
+@using System.Globalization
+@using TourneeVeto.Domain.Regie
+@using TourneeVeto.Ui.Formatting
+
+@* Fiche de la vache sélectionnée dans la grille (panneau de droite de la maquette web/regie.png).
+   Motifs, urgence et jours viennent de DailyActions (TourneeVeto.Domain) ; ce composant ne fait que les afficher. *@
+<section class="root root--@Item.Urgency.ToString().ToLowerInvariant()" aria-labelledby="@TitleId">
+    <p class="eyebrow">Fiche de la vache</p>
+    <h2 class="title" id="@TitleId">
+        <span class="number">N° @Item.Cow.Id</span>
+        <span>@Item.Cow.Name</span>
+    </h2>
+    <p class="urgency">@RegieLabels.Urgency(Item.Urgency)</p>
+
+    @if (RegieLabels.Anomaly(Item.Anomaly) is { } anomaly)
+    {
+        <p class="anomaly">Anomalie : @anomaly</p>
+    }
+
+    <h3 class="section-title">Motifs de la visite</h3>
+    @if (Item.Motives.Count == 0)
+    {
+        <p class="empty">Aucun motif calculé : corriger la donnée signalée.</p>
+    }
+    else
+    {
+        <ul class="motives" role="list">
+            @foreach (var motive in Item.Motives)
+            {
+                <li class="motive">
+                    <span class="motive-name">@RegieLabels.Action(motive.Action)</span>
+                    @if (RegieLabels.Due(motive) is { } due)
+                    {
+                        <span class="motive-due">@due</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    <h3 class="section-title">Repères</h3>
+    <dl class="facts">
+        <div class="fact"><dt>Statut</dt><dd>@HerdLabels.Status(Item.Cow.Status)</dd></div>
+        <div class="fact"><dt>Lactation</dt><dd>@(Item.Cow.IsHeifer ? "Génisse" : $"Rang {Item.Cow.Lactation}")</dd></div>
+        <div class="fact"><dt>Née le</dt><dd>@Day(Item.Cow.BornOn)</dd></div>
+        <div class="fact"><dt>Dernier vêlage</dt><dd>@Day(Item.Cow.LastCalving)</dd></div>
+        <div class="fact"><dt>Dernière IA</dt><dd>@Day(Item.Cow.LastInsemination)</dd></div>
+        <div class="fact"><dt>Dernier CCS</dt><dd>@(Item.Cow.LastSccThousands is int scc ? $"{scc} k cellules/mL" : "Aucun contrôle")</dd></div>
+    </dl>
+</section>
+
+@code {
+    private static readonly CultureInfo FrenchCanada = CultureInfo.GetCultureInfo("fr-CA");
+
+    /// <summary>Ligne de la grille de régie calculée par le domaine.</summary>
+    [Parameter, EditorRequired]
+    public RegieItem Item { get; set; } = default!;
+
+    private string TitleId => $"cow-detail-{Item.Cow.FarmId}-{Item.Cow.Id}";
+
+    private static string Day(DateOnly? date) => date?.ToString("d MMMM yyyy", FrenchCanada) ?? "—";
+}

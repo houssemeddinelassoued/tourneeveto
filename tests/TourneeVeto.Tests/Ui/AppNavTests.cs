@@ -9,13 +9,13 @@ namespace TourneeVeto.Tests.Ui;
 public class AppNavTests : BunitContext
 {
     [Fact]
-    public void Propose_la_tournee_et_la_grille_de_regie()
+    public void Propose_la_tournee_la_grille_de_regie_et_la_biosecurite()
     {
         var cut = Render<AppNav>();
 
         var links = cut.FindAll("a.item");
-        Assert.Equal(["Tournée du jour", "Grille de régie"], links.Select(link => link.TextContent.Trim()));
-        Assert.Equal(["", "regie"], links.Select(link => link.GetAttribute("href")));
+        Assert.Equal(["Tournée du jour", "Grille de régie", "Bilan biosécurité"], links.Select(link => link.TextContent.Trim()));
+        Assert.Equal(["", "regie", "biosecurite"], links.Select(link => link.GetAttribute("href")));
     }
 
     [Fact]

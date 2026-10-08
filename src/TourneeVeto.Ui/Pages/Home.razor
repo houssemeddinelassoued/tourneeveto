@@ -1,39 +1,74 @@
 @page "/"
+@using System.Globalization
+@using TourneeVeto.Domain.Herd
+@using TourneeVeto.Domain.Regie
 @using TourneeVeto.Domain.Visits
 @using TourneeVeto.Ui.Data
 @inject DemoDataSeeder Seeder
 @inject IVisitRepository Repository
 @inject TimeProvider TimeProvider
+@inject RegieThresholds Thresholds
 
-<PageTitle>TournéeVéto</PageTitle>
+@* Tournée du jour (maquettes design/stitch/*/tournee.png). Le nombre de vaches à voir et d'urgences vient de
+   DailyActions (TourneeVeto.Domain) ; la page ne fait que les compter et les afficher. *@
 
-<h1 class="title">TournéeVéto</h1>
-<p class="notice">Preuve de concept — données fictives, règles métier simplifiées.</p>
+<PageTitle>Tournée du jour — TournéeVéto</PageTitle>
 
-<section class="today" aria-labelledby="today-title" aria-busy="@(visits is null && error is null ? "true" : "false")">
-    <h2 class="subtitle" id="today-title">Tournée du jour</h2>
+<section class="root" aria-labelledby="tour-title" aria-busy="@(stops is null && error is null ? "true" : "false")">
+    <header class="header">
+        <p class="eyebrow">Planning d'intervention</p>
+        <h1 class="title" id="tour-title">@DateLabel</h1>
+        @if (stops is { Count: > 0 })
+        {
+            <p class="summary">
+                <span>@stops.Count visite(s) prévue(s)</span>
+                <span class="chip chip--ok">@stops.Sum(stop => stop.ToSee) vache(s) à voir</span>
+            </p>
+        }
+    </header>
 
     @if (error is not null)
     {
         <p class="error" role="alert">@error</p>
     }
-    else if (visits is null)
+    else if (stops is null)
     {
-        <p class="status">Chargement des données…</p>
+        <p class="status">Chargement de la tournée…</p>
     }
-    else if (visits.Count == 0)
+    else if (stops.Count == 0)
     {
         <p class="status">Aucune visite prévue aujourd'hui.</p>
     }
     else
     {
-        <ol class="visits" role="list">
-            @foreach (var visit in visits)
+        <ol class="stops" role="list">
+            @foreach (var (stop, index) in stops.Select((stop, index) => (stop, index)))
             {
-                <li>
-                    <a class="visit" href="@($"regie/{visit.FarmId}")">
-                        <span class="farm">@FarmName(visit.FarmId)</span>
-                        <span class="reason">@visit.Reason</span>
+                var isNext = index == 0;
+                <li class="stop @(isNext ? "stop--next" : null)" @key="stop.Visit.Id">
+                    <p class="states">
+                        <span class="state @(isNext ? "state--next" : "state--waiting")">Étape @(index + 1) · @(isNext ? "Suivante" : "En attente")</span>
+                        @if (stop.Urgent > 0)
+                        {
+                            <span class="state state--urgent">Vigilance : @stop.Urgent urgence(s)</span>
+                        }
+                    </p>
+                    <h2 class="farm">@stop.Farm.Name</h2>
+                    <p class="place">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" />
+                        </svg>
+                        @stop.Farm.Municipality · @stop.Farm.CowCount vaches
+                    </p>
+                    <div class="motive">
+                        <p class="motive-label">Motif</p>
+                        <p class="reason">@stop.Visit.Reason</p>
+                    </div>
+                    <p class="chips">
+                        <span class="chip">@stop.ToSee vache(s) à voir</span>
+                    </p>
+                    <a class="action @(isNext ? "action--primary" : "action--secondary")" href="@($"regie/{stop.Farm.Id}")">
+                        @(isNext ? "Démarrer la visite" : "Voir l'élevage")
                     </a>
                 </li>
             }
@@ -42,19 +77,41 @@
 </section>
 
 @code {
-    private IReadOnlyList<Visit>? visits;
-    private Dictionary<string, Farm> farms = [];
+    private static readonly CultureInfo FrenchCanada = CultureInfo.GetCultureInfo("fr-CA");
+
+    private IReadOnlyList<Stop>? stops;
     private string? error;
+    private DateOnly today;
+
+    private string DateLabel
+    {
+        get
+        {
+            var label = today.ToString("dddd d MMMM yyyy", FrenchCanada);
+            return label.Length == 0 ? label : char.ToUpper(label[0], FrenchCanada) + label[1..];
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
+        today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
         try
         {
             // Les données viennent du stockage local, alimenté au premier lancement par le jeu de démonstration.
             await Seeder.EnsureSeededAsync();
-            var today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
-            farms = (await Repository.GetFarmsAsync()).ToDictionary(farm => farm.Id);
-            visits = [.. (await Repository.GetVisitsByDateAsync(today)).OrderBy(visit => visit.FarmId, StringComparer.Ordinal)];
+            var farms = (await Repository.GetFarmsAsync()).ToDictionary(farm => farm.Id);
+            var visits = (await Repository.GetVisitsByDateAsync(today))
+                .Where(visit => farms.ContainsKey(visit.FarmId))
+                .OrderBy(visit => visit.FarmId, StringComparer.Ordinal);
+
+            var result = new List<Stop>();
+            foreach (var visit in visits)
+            {
+                var grid = DailyActions.Compute(await Repository.GetCowsByFarmAsync(visit.FarmId), today, Thresholds);
+                result.Add(new Stop(visit, farms[visit.FarmId], grid.Items.Count, grid.Items.Count(item => item.Urgency == Urgency.Urgent)));
+            }
+
+            stops = result;
         }
         catch (StorageUnavailableException exception)
         {
@@ -62,5 +119,5 @@
         }
     }
 
-    private string FarmName(string farmId) => farms.TryGetValue(farmId, out var farm) ? farm.Name : "Ferme introuvable";
+    private sealed record Stop(Visit Visit, Farm Farm, int ToSee, int Urgent);
 }

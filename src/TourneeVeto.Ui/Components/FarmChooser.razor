@@ -1,0 +1,57 @@
+@using TourneeVeto.Domain.Visits
+@using TourneeVeto.Ui.Data
+@inject DemoDataSeeder Seeder
+@inject IVisitRepository Repository
+@inject TimeProvider TimeProvider
+
+@* Choix d'une ferme de la tournée du jour, pour les écrans qui en ont besoin (grille de régie, biosécurité). *@
+<div class="root">
+    @if (error is not null)
+    {
+        <p class="error" role="alert">@error</p>
+    }
+    else if (farms is null)
+    {
+        <p class="status">Chargement des fermes du jour…</p>
+    }
+    else if (farms.Count == 0)
+    {
+        <p class="status">Aucune visite prévue aujourd'hui.</p>
+    }
+    else
+    {
+        <p class="status">Choisissez la ferme de la tournée du jour :</p>
+        <ul class="choices" role="list">
+            @foreach (var farm in farms)
+            {
+                <li><a class="choice" href="@($"{BasePath}/{farm.Id}")">@farm.Name · @farm.Municipality</a></li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<Farm>? farms;
+    private string? error;
+
+    /// <summary>Chemin de l'écran à ouvrir, sans barre finale (ex. « regie » donne « regie/F001 »).</summary>
+    [Parameter, EditorRequired]
+    public string BasePath { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await Seeder.EnsureSeededAsync();
+            var today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
+            var visits = await Repository.GetVisitsByDateAsync(today);
+            farms = [.. (await Repository.GetFarmsAsync())
+                .Where(farm => visits.Any(visit => visit.FarmId == farm.Id))
+                .OrderBy(farm => farm.Id, StringComparer.Ordinal)];
+        }
+        catch (StorageUnavailableException exception)
+        {
+            error = exception.Message;
+        }
+    }
+}

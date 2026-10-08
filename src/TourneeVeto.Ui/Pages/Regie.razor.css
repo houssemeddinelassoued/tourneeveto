@@ -59,34 +59,6 @@
     color: var(--color-on-warning-surface);
 }
 
-/* --- Choix de la ferme (/regie) --- */
-
-.choices {
-    display: grid;
-    gap: var(--space-sm);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.choice {
-    display: flex;
-    align-items: center;
-    min-block-size: var(--touch-target-primary);
-    padding: var(--space-sm) var(--space-lg);
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font: var(--font-label-lg);
-    text-decoration: none;
-}
-
-.choice:focus-visible {
-    outline: var(--focus-ring-width) solid var(--color-focus);
-    outline-offset: var(--border-width-strong);
-}
-
 /* --- Filtres par motif --- */
 
 .filters {
@@ -139,7 +111,27 @@
     }
 }
 
+/* La fiche détaillée n'apparaît que sur poste : sur tablette, la carte suffit. */
+.detail {
+    display: none;
+}
+
 @media (min-width: 1024px) {
+    .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(20rem, 26rem);
+        align-items: start;
+        gap: var(--space-lg);
+    }
+
+    .detail {
+        position: sticky;
+        inset-block-start: var(--space-lg);
+        display: block;
+    }
+}
+
+@media (min-width: 1800px) {
     .cows {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }

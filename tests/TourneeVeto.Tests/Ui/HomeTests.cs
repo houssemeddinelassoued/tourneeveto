@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 using Microsoft.JSInterop;
 using TourneeVeto.Domain;
+using TourneeVeto.Domain.Herd;
+using TourneeVeto.Domain.Regie;
 using TourneeVeto.Domain.Visits;
 using TourneeVeto.Ui;
 using TourneeVeto.Ui.Data;
@@ -36,14 +38,24 @@ public class HomeTests : BunitContext, IAsyncLifetime
         module.Setup<bool>("seedIfEmpty", _ => true).SetResult(false);
         module.Setup<IReadOnlyList<Farm>>("getFarms").SetResult(data.Farms);
         module.Setup<IReadOnlyList<Visit>>("getVisitsByDate", Today).SetResult([.. data.Visits.Reverse()]);
+        foreach (var farm in data.Farms)
+        {
+            module.Setup<IReadOnlyList<Cow>>("getCowsByFarm", farm.Id).SetResult([.. data.Cows.Where(cow => cow.FarmId == farm.Id)]);
+        }
 
         var cut = Render<Home>();
 
         cut.WaitForAssertion(() => Assert.Equal(
             data.Farms.Select(farm => farm.Name),
-            cut.FindAll(".farm").Select(farm => farm.TextContent)));
+            cut.FindAll("h2.farm").Select(farm => farm.TextContent)));
         Assert.Equal("false", cut.Find("section").GetAttribute("aria-busy"));
-        Assert.Equal(data.Farms.Select(farm => $"regie/{farm.Id}"), cut.FindAll("a.visit").Select(link => link.GetAttribute("href")));
+        Assert.Equal("Jeudi 8 octobre 2026", cut.Find("h1").TextContent);
+        Assert.Equal(data.Farms.Select(farm => $"regie/{farm.Id}"), cut.FindAll("a.action").Select(link => link.GetAttribute("href")));
+        Assert.Equal(["Démarrer la visite", "Voir l'élevage", "Voir l'élevage"], cut.FindAll("a.action").Select(link => link.TextContent.Trim()));
+        Assert.StartsWith("Étape 1 · Suivante", cut.Find(".stop--next .state").TextContent);
+
+        var expectedToSee = data.Farms.Sum(farm => DailyActions.Compute(data.Cows.Where(cow => cow.FarmId == farm.Id), Today).Items.Count);
+        Assert.Equal($"{expectedToSee} vache(s) à voir", cut.Find(".summary .chip").TextContent);
     }
 
     [Fact]

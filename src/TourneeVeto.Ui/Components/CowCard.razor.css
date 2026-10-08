@@ -94,6 +94,29 @@
     overflow-wrap: anywhere;
 }
 
+.cow-card--selected {
+    box-shadow: 0 0 0 var(--border-width-strong) var(--color-primary);
+}
+
+.cow-card__select {
+    min-block-size: var(--touch-target);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    text-decoration: underline;
+    text-decoration-thickness: var(--border-width);
+    text-underline-offset: var(--space-xs);
+    cursor: pointer;
+}
+
+.cow-card__select:focus-visible {
+    outline: var(--focus-ring-width) solid var(--color-focus);
+    outline-offset: var(--border-width-strong);
+}
+
 .cow-card__lactation {
     padding: var(--space-xs) var(--space-sm);
     border-radius: var(--radius-sm);

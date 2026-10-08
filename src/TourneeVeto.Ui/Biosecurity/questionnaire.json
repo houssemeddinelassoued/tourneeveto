@@ -1,0 +1,110 @@
+{
+  "_note": "Questionnaire simplifié et FICTIF pour le POC TournéeVéto : ne remplace pas l'évaluation proAction.",
+  "questions": [
+    {
+      "id": "intro-quarantaine",
+      "section": "Introduction d'animaux",
+      "text": "Les animaux achetés sont-ils isolés au moins 21 jours avant d'entrer dans le troupeau ?",
+      "weight": 3,
+      "isCritical": true
+    },
+    {
+      "id": "intro-statut",
+      "section": "Introduction d'animaux",
+      "text": "Le statut sanitaire des animaux est-il vérifié avant l'achat ?",
+      "weight": 2,
+      "isCritical": false
+    },
+    {
+      "id": "intro-retour",
+      "section": "Introduction d'animaux",
+      "text": "Les animaux qui reviennent d'une exposition ou d'une pension sont-ils isolés ?",
+      "weight": 2,
+      "isCritical": false
+    },
+    {
+      "id": "visit-registre",
+      "section": "Visiteurs et véhicules",
+      "text": "Un registre des visiteurs est-il tenu à jour ?",
+      "weight": 1,
+      "isCritical": false
+    },
+    {
+      "id": "visit-bottes",
+      "section": "Visiteurs et véhicules",
+      "text": "Des bottes ou couvre-bottes propres sont-ils fournis aux visiteurs ?",
+      "weight": 2,
+      "isCritical": false
+    },
+    {
+      "id": "visit-camions",
+      "section": "Visiteurs et véhicules",
+      "text": "Les camions (lait, équarrissage, aliments) restent-ils hors des zones d'animaux ?",
+      "weight": 3,
+      "isCritical": true
+    },
+    {
+      "id": "veau-local",
+      "section": "Vêlage et veaux",
+      "text": "Le local de vêlage est-il nettoyé et paillé entre deux vêlages ?",
+      "weight": 2,
+      "isCritical": false
+    },
+    {
+      "id": "veau-colostrum",
+      "section": "Vêlage et veaux",
+      "text": "Chaque veau reçoit-il assez de colostrum dans les 6 heures qui suivent sa naissance ?",
+      "weight": 3,
+      "isCritical": true
+    },
+    {
+      "id": "veau-malade",
+      "section": "Vêlage et veaux",
+      "text": "Les veaux malades sont-ils séparés des autres ?",
+      "weight": 2,
+      "isCritical": false
+    },
+    {
+      "id": "mort-stockage",
+      "section": "Animaux morts et nuisibles",
+      "text": "Les animaux morts sont-ils stockés loin des animaux et du trajet du camion de collecte ?",
+      "weight": 3,
+      "isCritical": false
+    },
+    {
+      "id": "mort-rongeurs",
+      "section": "Animaux morts et nuisibles",
+      "text": "Un plan de lutte contre les rongeurs est-il appliqué ?",
+      "weight": 1,
+      "isCritical": false
+    },
+    {
+      "id": "mort-oiseaux",
+      "section": "Animaux morts et nuisibles",
+      "text": "Les oiseaux et les chats ont-ils un accès limité aux aliments ?",
+      "weight": 1,
+      "isCritical": false
+    },
+    {
+      "id": "traite-trayons",
+      "section": "Hygiène de la traite",
+      "text": "Les trayons sont-ils désinfectés après chaque traite ?",
+      "weight": 3,
+      "isCritical": true
+    },
+    {
+      "id": "traite-mammites",
+      "section": "Hygiène de la traite",
+      "text": "Les vaches à mammite sont-elles traites en dernier ou avec une griffe dédiée ?",
+      "weight": 2,
+      "isCritical": false
+    },
+    {
+      "id": "traite-controle",
+      "section": "Hygiène de la traite",
+      "text": "L'équipement de traite est-il contrôlé au moins une fois par an ?",
+      "weight": 1,
+      "isCritical": false
+    }
+  ]
+}

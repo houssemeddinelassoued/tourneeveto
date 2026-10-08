@@ -1,0 +1,163 @@
+@page "/biosecurite"
+@page "/biosecurite/{FarmId}"
+@using TourneeVeto.Domain.Biosecurity
+@using TourneeVeto.Domain.Visits
+@using TourneeVeto.Ui.Biosecurity
+@using TourneeVeto.Ui.Data
+@using TourneeVeto.Ui.Formatting
+@inject DemoDataSeeder Seeder
+@inject IVisitRepository Repository
+
+@* Bilan de biosécurité (maquettes design/stitch/*/biosecurite.png). Scores, niveaux de risque et pratiques
+   prioritaires viennent de BiosecurityScore (TourneeVeto.Domain) ; la page ne fait qu'afficher et recueillir les réponses. *@
+
+<PageTitle>Bilan biosécurité — TournéeVéto</PageTitle>
+
+<section class="root" aria-labelledby="bio-title">
+    <header class="header">
+        <p class="eyebrow">Bilan de biosécurité</p>
+        <h1 class="title" id="bio-title">Bilan biosécurité</h1>
+        @if (farm is not null)
+        {
+            <p class="farm">@farm.Name · @farm.Municipality</p>
+        }
+        <p class="notice">Questionnaire simplifié et fictif : il ne remplace pas l'évaluation proAction.</p>
+    </header>
+
+    @if (string.IsNullOrEmpty(FarmId))
+    {
+        <FarmChooser BasePath="biosecurite" />
+    }
+    else if (error is not null)
+    {
+        <p class="error" role="alert">@error</p>
+    }
+    else if (!loaded)
+    {
+        <p class="status">Chargement du bilan…</p>
+    }
+    else
+    {
+        <div class="sections" role="group" aria-label="Rubriques du bilan">
+            @foreach (var (section, index) in Result.Sections.Select((section, index) => (section, index)))
+            {
+                <button type="button" class="section-tab section-tab--@Tone(section.Level)" aria-pressed="@(index == current ? "true" : "false")" @onclick="() => current = index">
+                    <span class="section-tab-name">@(index + 1). @section.Section</span>
+                    <span class="section-tab-score">@BiosecurityLabels.Score(section)</span>
+                </button>
+            }
+        </div>
+
+        @if (Result.Sections.ElementAtOrDefault(current) is { } shown)
+        {
+            var questions = Questions.Where(question => question.Section == shown.Section).ToList();
+            <section class="section" aria-labelledby="section-title">
+                <header class="section-header">
+                    <h2 class="section-title" id="section-title">@(current + 1). @shown.Section</h2>
+                    <p class="section-meta">@questions.Count questions · <span class="level level--@Tone(shown.Level)">@BiosecurityLabels.Score(shown)</span></p>
+                </header>
+
+                <ol class="questions" role="list">
+                    @foreach (var (question, number) in questions.Select((question, index) => (question, index + 1)))
+                    {
+                        <li class="question" @key="question.Id">
+                            <fieldset class="answers">
+                                <legend class="question-text">
+                                    <span class="number" aria-hidden="true">@number</span>
+                                    <span>@question.Text</span>
+                                    @if (question.IsCritical)
+                                    {
+                                        <span class="critical">Point critique</span>
+                                    }
+                                </legend>
+                                @foreach (var answer in BiosecurityLabels.Answers)
+                                {
+                                    <label class="answer answer--@answer.ToString().ToLowerInvariant()">
+                                        <input type="radio" name="@($"q-{question.Id}")" checked="@(Selected(question) == answer)" @onchange="() => Choose(question, answer)" />
+                                        <span aria-hidden="true">@BiosecurityLabels.ShortAnswerText(answer)</span>
+                                        <span class="visually-hidden">@BiosecurityLabels.AnswerText(answer)</span>
+                                    </label>
+                                }
+                            </fieldset>
+                        </li>
+                    }
+                </ol>
+
+                @if (current < Result.Sections.Count - 1)
+                {
+                    <button type="button" class="next" @onclick="() => current++">Rubrique suivante : @Result.Sections[current + 1].Section</button>
+                }
+            </section>
+        }
+
+        <section class="priorities" aria-labelledby="priorities-title">
+            <h2 class="section-title" id="priorities-title">Pratiques prioritaires</h2>
+            @if (Result.PriorityPractices.Count == 0)
+            {
+                <p class="status">Aucune pratique à améliorer pour l'instant : répondez aux questions de chaque rubrique.</p>
+            }
+            else
+            {
+                <ol class="priority-list">
+                    @foreach (var practice in Result.PriorityPractices)
+                    {
+                        <li>
+                            <span class="priority-text">@practice.Text</span>
+                            <span class="priority-meta">@practice.Section · @BiosecurityLabels.AnswerText(answers[practice.Id])@(practice.IsCritical ? " · Point critique" : "")</span>
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    private static readonly IReadOnlyList<BiosecurityQuestion> Questions = BiosecurityQuestionnaire.Default;
+
+    private readonly Dictionary<string, Answer> answers = [];
+    private Farm? farm;
+    private string? error;
+    private bool loaded;
+    private int current;
+
+    /// <summary>Identifiant de la ferme visitée ; vide sur /biosecurite, qui propose les fermes du jour.</summary>
+    [Parameter]
+    public string? FarmId { get; set; }
+
+    private BiosecurityResult Result => BiosecurityScore.Compute(Questions, answers);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        (farm, error, loaded, current) = (null, null, false, 0);
+        answers.Clear();
+        if (string.IsNullOrEmpty(FarmId))
+        {
+            return;
+        }
+
+        try
+        {
+            await Seeder.EnsureSeededAsync();
+            farm = (await Repository.GetFarmsAsync()).FirstOrDefault(candidate => candidate.Id == FarmId);
+            error = farm is null ? "Ferme introuvable." : null;
+            loaded = true;
+        }
+        catch (StorageUnavailableException exception)
+        {
+            error = exception.Message;
+        }
+    }
+
+    private Answer? Selected(BiosecurityQuestion question) => answers.TryGetValue(question.Id, out var answer) ? answer : null;
+
+    private void Choose(BiosecurityQuestion question, Answer answer) => answers[question.Id] = answer;
+
+    private static string Tone(RiskLevel level) => level switch
+    {
+        RiskLevel.Low => "ok",
+        RiskLevel.Moderate => "warning",
+        RiskLevel.High => "urgent",
+        _ => "neutral",
+    };
+}

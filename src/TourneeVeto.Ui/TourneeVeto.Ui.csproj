@@ -14,6 +14,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Biosecurity\questionnaire.json" LogicalName="TourneeVeto.Ui.Biosecurity.questionnaire.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\TourneeVeto.Domain\TourneeVeto.Domain.csproj" />
   </ItemGroup>
 

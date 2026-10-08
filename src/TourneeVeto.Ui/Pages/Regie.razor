@@ -29,19 +29,13 @@
         }
     </header>
 
-    @if (error is not null)
+    @if (string.IsNullOrEmpty(FarmId))
+    {
+        <FarmChooser BasePath="regie" />
+    }
+    else if (error is not null)
     {
         <p class="error" role="alert">@error</p>
-    }
-    else if (string.IsNullOrEmpty(FarmId) && choices is not null)
-    {
-        <p class="status">Choisissez la ferme de la tournée du jour :</p>
-        <ul class="choices" role="list">
-            @foreach (var choice in choices)
-            {
-                <li><a class="choice" href="@($"regie/{choice.Id}")">@choice.Name · @choice.Municipality</a></li>
-            }
-        </ul>
     }
     else if (grid is null)
     {
@@ -71,26 +65,38 @@
                 @foreach (var (action, count) in ActionCounts)
                 {
                     <button type="button" class="filter" aria-pressed="@Pressed(action)" @onclick="() => filter = action">
-                        @ActionLabel(action) (@count)
+                        @RegieLabels.Action(action) (@count)
                     </button>
                 }
             </div>
 
-            <ul class="cows" role="list">
-                @foreach (var item in VisibleItems)
+            <div class="workspace">
+                <ul class="cows" role="list">
+                    @foreach (var item in VisibleItems)
+                    {
+                        var primary = item.Motives.FirstOrDefault();
+                        <li @key="item.Cow.Id">
+                            <CowCard Cow="item.Cow"
+                                     Action="primary?.Action"
+                                     Urgency="item.Urgency"
+                                     Anomaly="item.Anomaly"
+                                     DueLabel="@RegieLabels.Due(primary)"
+                                     Detail="@OtherMotives(item)"
+                                     Metrics="@Metrics(item.Cow)"
+                                     Selected="@(item.Cow.Id == Selected?.Cow.Id)"
+                                     OnSelect="@(() => selectedId = item.Cow.Id)" />
+                        </li>
+                    }
+                </ul>
+
+                @* Fiche détaillée (poste) : la vache choisie, sinon la première de la liste affichée. *@
+                @if (Selected is { } selected)
                 {
-                    var primary = item.Motives.FirstOrDefault();
-                    <li @key="item.Cow.Id">
-                        <CowCard Cow="item.Cow"
-                                 Action="primary?.Action"
-                                 Urgency="item.Urgency"
-                                 Anomaly="item.Anomaly"
-                                 DueLabel="@DueLabel(primary)"
-                                 Detail="@OtherMotives(item)"
-                                 Metrics="@Metrics(item.Cow)" />
-                    </li>
+                    <aside class="detail" aria-label="Fiche de la vache sélectionnée">
+                        <CowDetail Item="selected" />
+                    </aside>
                 }
-            </ul>
+            </div>
         }
     }
 </section>
@@ -100,7 +106,7 @@
     private RegieGrid? grid;
     private string? error;
     private RegieAction? filter;
-    private IReadOnlyList<Farm>? choices;
+    private string? selectedId;
 
     /// <summary>Identifiant de la ferme visitée (ex. « F001 ») ; vide sur /regie, qui propose les fermes du jour.</summary>
     [Parameter]
@@ -108,19 +114,16 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        (farm, grid, error, filter, choices) = (null, null, null, null, null);
+        (farm, grid, error, filter, selectedId) = (null, null, null, null, null);
+        if (string.IsNullOrEmpty(FarmId))
+        {
+            return;
+        }
+
         try
         {
             await Seeder.EnsureSeededAsync();
-            var farms = await Repository.GetFarmsAsync();
-            if (string.IsNullOrEmpty(FarmId))
-            {
-                var todayVisits = await Repository.GetVisitsByDateAsync(DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime));
-                choices = [.. farms.Where(candidate => todayVisits.Any(visit => visit.FarmId == candidate.Id)).OrderBy(candidate => candidate.Id, StringComparer.Ordinal)];
-                return;
-            }
-
-            farm = farms.FirstOrDefault(candidate => candidate.Id == FarmId);
+            farm = (await Repository.GetFarmsAsync()).FirstOrDefault(candidate => candidate.Id == FarmId);
             IReadOnlyList<Cow> cows = farm is null ? [] : await Repository.GetCowsByFarmAsync(FarmId);
             var today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
             grid = DailyActions.Compute(cows, today, Thresholds);
@@ -141,31 +144,12 @@
             .OrderBy(group => group.Key)
             .Select(group => (group.Key, group.Count()));
 
+    private RegieItem? Selected => VisibleItems.FirstOrDefault(item => item.Cow.Id == selectedId) ?? VisibleItems.FirstOrDefault();
+
     private string Pressed(RegieAction? action) => filter == action ? "true" : "false";
 
-    private static string ActionLabel(RegieAction action) => action switch
-    {
-        RegieAction.CalvingSoon => "Vêlage prévu",
-        RegieAction.PregnancyCheck => "DG",
-        RegieAction.DryOff => "Tarissement",
-        RegieAction.HighScc => "CCS élevé",
-        RegieAction.PostCalvingCheck => "Post-vêlage",
-        RegieAction.NotInseminated => "Vache vide",
-        _ => action.ToString(),
-    };
-
-    private static string? DueLabel(RegieMotive? motive) => motive switch
-    {
-        { Action: RegieAction.PregnancyCheck, Days: int days, IsOverdue: true } => $"IA J+{days} · DG en retard",
-        { Action: RegieAction.PregnancyCheck, Days: int days } => $"IA J+{days}",
-        { Action: RegieAction.DryOff or RegieAction.CalvingSoon, Days: int days } when days >= 0 => $"Vêlage J-{days}",
-        { Action: RegieAction.DryOff or RegieAction.CalvingSoon, Days: int days } => $"Vêlage dépassé de {-days} j",
-        { Action: RegieAction.PostCalvingCheck or RegieAction.NotInseminated, Days: int days } => $"Vêlage J+{days}",
-        _ => null,
-    };
-
     private static string? OtherMotives(RegieItem item) =>
-        item.Motives.Count > 1 ? $"Aussi : {string.Join(", ", item.Motives.Skip(1).Select(motive => ActionLabel(motive.Action)))}." : null;
+        item.Motives.Count > 1 ? $"Aussi : {string.Join(", ", item.Motives.Skip(1).Select(motive => RegieLabels.Action(motive.Action)))}." : null;
 
     private static IReadOnlyList<CowCardMetric> Metrics(Cow cow) =>
     [

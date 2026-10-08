@@ -24,7 +24,7 @@ public class CowCardTests : BunitContext
             .Add(p => p.Urgency, Urgency.Info));
 
         Assert.Equal(cow.Id, cut.Find(".cow-card__number-value").TextContent);
-        Assert.Equal(cow.Name, cut.Find("h3").TextContent);
+        Assert.Equal(cow.Name, cut.Find("h3").TextContent.Trim());
         Assert.Equal("3e lact.", cut.Find(".cow-card__lactation").TextContent);
         Assert.Equal("Diagnostic de gestation", cut.Find("h4").TextContent);
     }
@@ -71,6 +71,7 @@ public class CowCardTests : BunitContext
 
         cut.Find(".cow-card__primary").Click();
         cut.Find(".cow-card__history").Click();
+        Assert.Empty(cut.FindAll(".cow-card__select"));
 
         Assert.Equal(1, actions);
         Assert.Equal(1, histories);
@@ -101,6 +102,35 @@ public class CowCardTests : BunitContext
 
         Assert.Equal("CCS élevé — suspicion de mammite", cut.Find("h4").TextContent);
         Assert.Equal("Anomalie : Date incohérente", cut.Find(".cow-card__anomaly").TextContent);
+    }
+
+    [Fact]
+    public void Sans_historique_branche_le_bouton_n_est_pas_affiche()
+    {
+        var cut = Render<CowCard>(parameters => parameters
+            .Add(p => p.Cow, DemoCow(lactation: 2))
+            .Add(p => p.Action, RegieAction.DryOff)
+            .Add(p => p.Urgency, Urgency.Ok));
+
+        Assert.Empty(cut.FindAll(".cow-card__history"));
+    }
+
+    [Fact]
+    public void Le_nom_selectionne_la_vache_quand_la_page_le_permet()
+    {
+        var selections = 0;
+        var cut = Render<CowCard>(parameters => parameters
+            .Add(p => p.Cow, DemoCow(lactation: 2))
+            .Add(p => p.Action, RegieAction.DryOff)
+            .Add(p => p.Urgency, Urgency.Ok)
+            .Add(p => p.Selected, true)
+            .Add(p => p.OnSelect, () => selections++));
+
+        cut.Find(".cow-card__select").Click();
+
+        Assert.Equal(1, selections);
+        Assert.Equal("true", cut.Find(".cow-card__select").GetAttribute("aria-pressed"));
+        Assert.Contains("cow-card--selected", cut.Find("article").ClassList);
     }
 
     [Fact]

@@ -3,7 +3,7 @@
 
 @* Carte d'une vache dans la grille de régie (maquettes design/stitch/tablette/regie.png et web/regie.png).
    L'action et l'urgence sont calculées par TourneeVeto.Domain : ce composant ne fait que les afficher. *@
-<article class="cow-card cow-card--@UrgencyModifier" aria-labelledby="@NameId">
+<article class="cow-card cow-card--@UrgencyModifier @(Selected ? "cow-card--selected" : null)" aria-labelledby="@NameId">
     <header class="cow-card__header">
         <p class="cow-card__number">
             <span class="cow-card__number-label">N°</span>
@@ -11,7 +11,16 @@
         </p>
 
         <div class="cow-card__identity">
-            <h3 class="cow-card__name" id="@NameId">@Cow.Name</h3>
+            <h3 class="cow-card__name" id="@NameId">
+                @if (OnSelect.HasDelegate)
+                {
+                    <button type="button" class="cow-card__select" aria-pressed="@(Selected ? "true" : "false")" @onclick="OnSelect">@Cow.Name</button>
+                }
+                else
+                {
+                    @Cow.Name
+                }
+            </h3>
             <span class="cow-card__lactation">@LactationLabel</span>
         </div>
 
@@ -63,13 +72,16 @@
             </svg>
             @ActionTexts.Button
         </button>
-        <button type="button" class="cow-card__history" @onclick="OnHistory" aria-label="@($"Historique de {Cow.Name}")">
-            <svg class="cow-card__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
-                <path d="M3.5 4v4.5H8" />
-                <path d="M12 7.5V12l3 2" />
-            </svg>
-        </button>
+        @if (OnHistory.HasDelegate)
+        {
+            <button type="button" class="cow-card__history" @onclick="OnHistory" aria-label="@($"Historique de {Cow.Name}")">
+                <svg class="cow-card__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
+                    <path d="M3.5 4v4.5H8" />
+                    <path d="M12 7.5V12l3 2" />
+                </svg>
+            </button>
+        }
     </footer>
 </article>
 
@@ -106,9 +118,17 @@
     [Parameter]
     public EventCallback OnAction { get; set; }
 
-    /// <summary>Déclenché par le bouton Historique.</summary>
+    /// <summary>Déclenché par le bouton Historique ; sans abonné, le bouton n'est pas affiché.</summary>
     [Parameter]
     public EventCallback OnHistory { get; set; }
+
+    /// <summary>Sélection de la vache (fiche détaillée sur poste) ; sans abonné, le nom n'est pas un bouton.</summary>
+    [Parameter]
+    public EventCallback OnSelect { get; set; }
+
+    /// <summary>Vache affichée dans la fiche détaillée.</summary>
+    [Parameter]
+    public bool Selected { get; set; }
 
     private string NameId => $"cow-card-{Cow.Id}-name";
 
