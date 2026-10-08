@@ -1,5 +1,7 @@
 @using TourneeVeto.Domain.Herd
 @using TourneeVeto.Domain.Regie
+@using TourneeVeto.Domain.Visits
+@using TourneeVeto.Ui.Formatting
 
 @* Carte d'une vache dans la grille de régie (maquettes design/stitch/tablette/regie.png et web/regie.png).
    L'action et l'urgence sont calculées par TourneeVeto.Domain : ce composant ne fait que les afficher. *@
@@ -65,13 +67,39 @@
         </dl>
     }
 
+    @if (OnNoteChanged.HasDelegate)
+    {
+        <details class="cow-card__note" open="@(!string.IsNullOrEmpty(Note))">
+            <summary class="cow-card__note-summary">@(string.IsNullOrEmpty(Note) ? "Ajouter une note" : "Note")</summary>
+            <label class="cow-card__note-label" for="@NoteId">Note pour @Cow.Name</label>
+            <textarea class="cow-card__note-input" id="@NoteId" rows="3" maxlength="@CowVisitRecord.MaxNoteLength"
+                      value="@Note" @onchange="@(args => OnNoteChanged.InvokeAsync((string?)args.Value ?? string.Empty))"></textarea>
+            <span class="cow-card__note-count">@(Note?.Length ?? 0)/@CowVisitRecord.MaxNoteLength</span>
+        </details>
+    }
+
     <footer class="cow-card__actions">
-        <button type="button" class="cow-card__primary" @onclick="OnAction">
-            <svg class="cow-card__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M5 12.5l4.5 4.5L19 7.5" />
-            </svg>
-            @ActionTexts.Button
-        </button>
+        @if (Outcomes is { Count: > 0 } && Action is { } action)
+        {
+            @* Story 7.1 : un résultat en une touche ; le résultat choisi reste marqué (aria-pressed). *@
+            <div class="cow-card__outcomes" role="group" aria-label="@ActionTexts.Button">
+                @foreach (var option in Outcomes)
+                {
+                    <button type="button" class="cow-card__outcome" aria-pressed="@(Outcome == option ? "true" : "false")" @onclick="@(() => OnOutcome.InvokeAsync(option))">
+                        @ResultLabels.For(action, option)
+                    </button>
+                }
+            </div>
+        }
+        else if (OnAction.HasDelegate)
+        {
+            <button type="button" class="cow-card__primary" @onclick="OnAction">
+                <svg class="cow-card__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg>
+                @ActionTexts.Button
+            </button>
+        }
         @if (OnHistory.HasDelegate)
         {
             <button type="button" class="cow-card__history" @onclick="OnHistory" aria-label="@($"Historique de {Cow.Name}")">
@@ -129,6 +157,27 @@
     /// <summary>Vache affichée dans la fiche détaillée.</summary>
     [Parameter]
     public bool Selected { get; set; }
+
+    /// <summary>Résultats proposés pour l'action (ResultOptions du domaine) ; sans eux, le bouton d'action classique est affiché.</summary>
+    [Parameter]
+    public IReadOnlyList<ResultOutcome>? Outcomes { get; set; }
+
+    /// <summary>Résultat déjà saisi pour l'action.</summary>
+    [Parameter]
+    public ResultOutcome? Outcome { get; set; }
+
+    [Parameter]
+    public EventCallback<ResultOutcome> OnOutcome { get; set; }
+
+    /// <summary>Note libre de la vache pour cette visite.</summary>
+    [Parameter]
+    public string? Note { get; set; }
+
+    /// <summary>Déclenché quand la note change ; sans abonné, la zone de note n'est pas affichée.</summary>
+    [Parameter]
+    public EventCallback<string> OnNoteChanged { get; set; }
+
+    private string NoteId => $"cow-card-{Cow.Id}-note";
 
     private string NameId => $"cow-card-{Cow.Id}-name";
 

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using TourneeVeto.Domain;
+using TourneeVeto.Domain.Biosecurity;
 using TourneeVeto.Domain.Herd;
 using TourneeVeto.Domain.Visits;
 
@@ -44,6 +45,18 @@ public sealed class IndexedDbVisitRepository(IJSRuntime jsRuntime) : IVisitRepos
 
     public Task ReplaceCowsAsync(string farmId, IReadOnlyList<Cow> cows, CancellationToken cancellationToken = default) =>
         InvokeVoidAsync("replaceCows", cancellationToken, farmId, cows);
+
+    public Task<IReadOnlyList<CowVisitRecord>> GetVisitRecordsAsync(Guid visitId, CancellationToken cancellationToken = default) =>
+        InvokeAsync<IReadOnlyList<CowVisitRecord>>("getVisitRecords", cancellationToken, visitId);
+
+    public Task SaveVisitRecordAsync(CowVisitRecord record, CancellationToken cancellationToken = default) =>
+        InvokeVoidAsync("putVisitRecord", cancellationToken, record);
+
+    public Task<BiosecurityAnswers?> GetBiosecurityAsync(Guid visitId, CancellationToken cancellationToken = default) =>
+        InvokeAsync<BiosecurityAnswers?>("getBiosecurity", cancellationToken, visitId);
+
+    public Task SaveBiosecurityAsync(BiosecurityAnswers answers, CancellationToken cancellationToken = default) =>
+        InvokeVoidAsync("putBiosecurity", cancellationToken, answers);
 
     public Task<Guid?> AddPhotoFromInputAsync(Guid visitId, ElementReference fileInput, CancellationToken cancellationToken = default) =>
         InvokeAsync<Guid?>("addPhotoFromInput", cancellationToken, visitId, fileInput);

@@ -4,7 +4,7 @@
 // convertie en StorageUnavailableException côté C#.
 
 const DB_NAME = "tourneeveto";
-const DB_VERSION = 2; // À incrémenter à chaque changement de schéma, avec une nouvelle étape dans upgrade().
+const DB_VERSION = 3; // À incrémenter à chaque changement de schéma, avec une nouvelle étape dans upgrade().
 const MAX_PHOTO_SIZE = 1600;
 const ERROR_PREFIX = "TOURNEEVETO_STORAGE:";
 
@@ -36,6 +36,13 @@ function upgrade(db, oldVersion, transaction) {
             cows.createIndex("farmId", "farmId");
             putAll(cows, read.result);
         };
+    }
+
+    if (oldVersion < 3) {
+        // Version 3 : saisies de la visite (résultats et note par vache) et réponses au bilan de biosécurité (epic 7, epic 8).
+        const records = db.createObjectStore("visitRecords", { keyPath: ["visitId", "cowId"] });
+        records.createIndex("visitId", "visitId");
+        db.createObjectStore("biosecurity", { keyPath: "visitId" });
     }
 }
 
@@ -150,16 +157,44 @@ export function putVisit(visit) {
 }
 
 export function deleteVisit(id) {
-    return run(["visits", "photos"], "readwrite", (transaction) => {
+    return run(["visits", "photos", "visitRecords", "biosecurity"], "readwrite", (transaction) => {
         transaction.objectStore("visits").delete(id);
-        const photos = transaction.objectStore("photos");
-        const cursor = photos.index("visitId").openKeyCursor(IDBKeyRange.only(id));
-        cursor.onsuccess = () => {
-            if (cursor.result) {
-                photos.delete(cursor.result.primaryKey);
-                cursor.result.continue();
-            }
-        };
+        transaction.objectStore("biosecurity").delete(id);
+        for (const storeName of ["photos", "visitRecords"]) {
+            const store = transaction.objectStore(storeName);
+            const cursor = store.index("visitId").openKeyCursor(IDBKeyRange.only(id));
+            cursor.onsuccess = () => {
+                if (cursor.result) {
+                    store.delete(cursor.result.primaryKey);
+                    cursor.result.continue();
+                }
+            };
+        }
+    });
+}
+
+// --- Saisies de la visite (une par vache) et bilan de biosécurité ---
+
+export function getVisitRecords(visitId) {
+    return getAllByIndex("visitRecords", "visitId", visitId);
+}
+
+export function putVisitRecord(record) {
+    return run("visitRecords", "readwrite", (transaction) => {
+        transaction.objectStore("visitRecords").put(record);
+    });
+}
+
+export function getBiosecurity(visitId) {
+    return run("biosecurity", "readonly", (transaction) => {
+        const request = transaction.objectStore("biosecurity").get(visitId);
+        return () => request.result ?? null;
+    });
+}
+
+export function putBiosecurity(answers) {
+    return run("biosecurity", "readwrite", (transaction) => {
+        transaction.objectStore("biosecurity").put(answers);
     });
 }
 

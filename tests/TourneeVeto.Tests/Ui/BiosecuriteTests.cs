@@ -2,6 +2,7 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 using TourneeVeto.Domain;
+using TourneeVeto.Domain.Biosecurity;
 using TourneeVeto.Domain.Visits;
 using TourneeVeto.Ui;
 using TourneeVeto.Ui.Biosecurity;
@@ -25,6 +26,9 @@ public class BiosecuriteTests : BunitContext, IAsyncLifetime
         module = JSInterop.SetupModule(IndexedDbVisitRepository.ModulePath);
         module.Setup<bool>("seedIfEmpty", _ => true).SetResult(false);
         module.Setup<IReadOnlyList<Farm>>("getFarms").SetResult(data.Farms);
+        module.Setup<IReadOnlyList<Visit>>("getVisitsByDate", Today).SetResult(data.Visits);
+        module.Setup<BiosecurityAnswers?>("getBiosecurity", _ => true).SetResult(null);
+        module.SetupVoid("putBiosecurity", _ => true).SetVoidResult();
     }
 
     // Le repository n'implémente que IAsyncDisposable (il ferme le module JS) : libérer le contexte de façon asynchrone.
@@ -85,6 +89,33 @@ public class BiosecuriteTests : BunitContext, IAsyncLifetime
 
         Assert.Equal("true", cut.FindAll(".section-tab")[1].GetAttribute("aria-pressed"));
         Assert.StartsWith("2. Visiteurs et véhicules", cut.Find("h2.section-title").TextContent);
+    }
+
+    [Fact]
+    public void Chaque_reponse_est_enregistree_pour_la_visite_du_jour()
+    {
+        var cut = RenderFarm();
+        var question = BiosecurityQuestionnaire.Default[0];
+
+        cut.FindAll($"input[name=q-{question.Id}]")[0].Change(true);   // Oui
+
+        cut.WaitForAssertion(() => Assert.Equal("Enregistré à 07:30", cut.Find(".saved").TextContent));
+        var saved = Assert.IsType<BiosecurityAnswers>(Assert.Single(module.Invocations["putBiosecurity"]).Arguments[0]);
+        Assert.Equal(data.Visits[0].Id, saved.VisitId);
+        Assert.Equal(Answer.Yes, saved.Answers[question.Id]);
+    }
+
+    [Fact]
+    public void Les_reponses_deja_enregistrees_sont_reprises()
+    {
+        var question = BiosecurityQuestionnaire.Default[0];
+        module.Setup<BiosecurityAnswers?>("getBiosecurity", data.Visits[0].Id)
+            .SetResult(new BiosecurityAnswers(data.Visits[0].Id, new Dictionary<string, Answer> { [question.Id] = Answer.Partial }, DateTimeOffset.UnixEpoch));
+
+        var cut = RenderFarm();
+
+        Assert.True(cut.FindAll($"input[name=q-{question.Id}]")[1].HasAttribute("checked"));
+        Assert.NotEqual("Non évaluée", cut.FindAll(".section-tab-score")[0].TextContent);
     }
 
     [Fact]

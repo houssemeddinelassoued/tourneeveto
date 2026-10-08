@@ -47,7 +47,7 @@
                 var isNext = index == 0;
                 <li class="stop @(isNext ? "stop--next" : null)" @key="stop.Visit.Id">
                     <p class="states">
-                        <span class="state @(isNext ? "state--next" : "state--waiting")">Étape @(index + 1) · @(isNext ? "Suivante" : "En attente")</span>
+                        <span class="state @StateClass(stop, isNext)">Étape @(index + 1) · @StateLabel(stop, isNext)</span>
                         @if (stop.Urgent > 0)
                         {
                             <span class="state state--urgent">Vigilance : @stop.Urgent urgence(s)</span>
@@ -108,7 +108,8 @@
             foreach (var visit in visits)
             {
                 var grid = DailyActions.Compute(await Repository.GetCowsByFarmAsync(visit.FarmId), today, Thresholds);
-                result.Add(new Stop(visit, farms[visit.FarmId], grid.Items.Count, grid.Items.Count(item => item.Urgency == Urgency.Urgent)));
+                var progress = VisitProgresses.Of(await Repository.GetVisitRecordsAsync(visit.Id));
+                result.Add(new Stop(visit, farms[visit.FarmId], grid.Items.Count, grid.Items.Count(item => item.Urgency == Urgency.Urgent), progress));
             }
 
             stops = result;
@@ -119,5 +120,11 @@
         }
     }
 
-    private sealed record Stop(Visit Visit, Farm Farm, int ToSee, int Urgent);
+    private static string StateLabel(Stop stop, bool isNext) =>
+        stop.Progress == VisitProgress.InProgress ? "En cours" : isNext ? "Suivante" : "En attente";
+
+    private static string StateClass(Stop stop, bool isNext) =>
+        stop.Progress == VisitProgress.InProgress ? "state--progress" : isNext ? "state--next" : "state--waiting";
+
+    private sealed record Stop(Visit Visit, Farm Farm, int ToSee, int Urgent, VisitProgress Progress);
 }

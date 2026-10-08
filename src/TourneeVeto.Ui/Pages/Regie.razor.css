@@ -59,6 +59,12 @@
     color: var(--color-on-warning-surface);
 }
 
+.saved {
+    margin: 0;
+    color: var(--color-ok);
+    font: var(--font-label-lg);
+}
+
 /* --- Filtres par motif --- */
 
 .filters {

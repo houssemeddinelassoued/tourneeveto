@@ -47,6 +47,20 @@
     }
     else
     {
+        @if (visit is null)
+        {
+            <p class="warning" role="status">Aucune visite prévue aujourd'hui pour cette ferme : la saisie des résultats est désactivée.</p>
+        }
+
+        @if (saveError is not null)
+        {
+            <p class="error" role="alert">@saveError</p>
+        }
+        else if (saveStatus is not null)
+        {
+            <p class="saved" role="status">@saveStatus</p>
+        }
+
         @if (grid.UsesDefaultThresholds)
         {
             <p class="warning" role="status">Configuration des seuils invalide : valeurs par défaut utilisées.</p>
@@ -84,7 +98,12 @@
                                      Detail="@OtherMotives(item)"
                                      Metrics="@Metrics(item.Cow)"
                                      Selected="@(item.Cow.Id == Selected?.Cow.Id)"
-                                     OnSelect="@(() => selectedId = item.Cow.Id)" />
+                                     OnSelect="@(() => selectedId = item.Cow.Id)"
+                                     Outcomes="@(visit is not null && primary is not null ? ResultOptions.For(primary.Action) : null)"
+                                     Outcome="@(primary is null ? null : RecordFor(item.Cow.Id)?.ResultFor(primary.Action))"
+                                     OnOutcome="@(visit is null || primary is null ? default : EventCallback.Factory.Create<ResultOutcome>(this, outcome => SaveResultAsync(item.Cow.Id, primary.Action, outcome)))"
+                                     Note="@RecordFor(item.Cow.Id)?.Note"
+                                     OnNoteChanged="@(visit is null ? default : EventCallback.Factory.Create<string>(this, note => SaveNoteAsync(item.Cow.Id, note)))" />
                         </li>
                     }
                 </ul>
@@ -107,6 +126,10 @@
     private string? error;
     private RegieAction? filter;
     private string? selectedId;
+    private Visit? visit;
+    private Dictionary<string, CowVisitRecord> records = [];
+    private string? saveStatus;
+    private string? saveError;
 
     /// <summary>Identifiant de la ferme visitée (ex. « F001 ») ; vide sur /regie, qui propose les fermes du jour.</summary>
     [Parameter]
@@ -114,7 +137,8 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        (farm, grid, error, filter, selectedId) = (null, null, null, null, null);
+        (farm, grid, error, filter, selectedId, visit, saveStatus, saveError) = (null, null, null, null, null, null, null, null);
+        records = [];
         if (string.IsNullOrEmpty(FarmId))
         {
             return;
@@ -126,6 +150,13 @@
             farm = (await Repository.GetFarmsAsync()).FirstOrDefault(candidate => candidate.Id == FarmId);
             IReadOnlyList<Cow> cows = farm is null ? [] : await Repository.GetCowsByFarmAsync(FarmId);
             var today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
+            if (farm is not null)
+            {
+                // Saisie rattachée à la visite du jour ; reprise des saisies déjà enregistrées (story 7.3).
+                visit = (await Repository.GetVisitsByDateAsync(today)).FirstOrDefault(candidate => candidate.FarmId == FarmId);
+                records = visit is null ? [] : (await Repository.GetVisitRecordsAsync(visit.Id)).ToDictionary(record => record.CowId);
+            }
+
             grid = DailyActions.Compute(cows, today, Thresholds);
         }
         catch (StorageUnavailableException exception)
@@ -147,6 +178,31 @@
     private RegieItem? Selected => VisibleItems.FirstOrDefault(item => item.Cow.Id == selectedId) ?? VisibleItems.FirstOrDefault();
 
     private string Pressed(RegieAction? action) => filter == action ? "true" : "false";
+
+    private CowVisitRecord? RecordFor(string cowId) => records.GetValueOrDefault(cowId);
+
+    private CowVisitRecord EditableRecord(string cowId) => RecordFor(cowId) ?? CowVisitRecord.Empty(visit!.Id, cowId);
+
+    private Task SaveResultAsync(string cowId, RegieAction action, ResultOutcome outcome) =>
+        SaveAsync(EditableRecord(cowId).WithResult(action, outcome, TimeProvider.GetLocalNow()));
+
+    private Task SaveNoteAsync(string cowId, string note) =>
+        SaveAsync(EditableRecord(cowId).WithNote(note.Length > CowVisitRecord.MaxNoteLength ? note[..CowVisitRecord.MaxNoteLength] : note, TimeProvider.GetLocalNow()));
+
+    // Enregistrement automatique à chaque saisie (story 7.3) ; en cas d'échec, la saisie reste affichée.
+    private async Task SaveAsync(CowVisitRecord record)
+    {
+        records[record.CowId] = record;
+        try
+        {
+            await Repository.SaveVisitRecordAsync(record);
+            (saveError, saveStatus) = (null, $"Enregistré à {record.UpdatedAt:HH:mm}");
+        }
+        catch (StorageUnavailableException exception)
+        {
+            (saveError, saveStatus) = (exception.Message, null);
+        }
+    }
 
     private static string? OtherMotives(RegieItem item) =>
         item.Motives.Count > 1 ? $"Aussi : {string.Join(", ", item.Motives.Skip(1).Select(motive => RegieLabels.Action(motive.Action)))}." : null;

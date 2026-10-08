@@ -7,6 +7,7 @@
 @using TourneeVeto.Ui.Formatting
 @inject DemoDataSeeder Seeder
 @inject IVisitRepository Repository
+@inject TimeProvider TimeProvider
 
 @* Bilan de biosécurité (maquettes design/stitch/*/biosecurite.png). Scores, niveaux de risque et pratiques
    prioritaires viennent de BiosecurityScore (TourneeVeto.Domain) ; la page ne fait qu'afficher et recueillir les réponses. *@
@@ -38,6 +39,20 @@
     }
     else
     {
+        @if (visit is null)
+        {
+            <p class="warning" role="status">Aucune visite prévue aujourd'hui pour cette ferme : les réponses ne seront pas enregistrées.</p>
+        }
+
+        @if (saveError is not null)
+        {
+            <p class="error" role="alert">@saveError</p>
+        }
+        else if (saveStatus is not null)
+        {
+            <p class="saved" role="status">@saveStatus</p>
+        }
+
         <div class="sections" role="group" aria-label="Rubriques du bilan">
             @foreach (var (section, index) in Result.Sections.Select((section, index) => (section, index)))
             {
@@ -120,6 +135,9 @@
     private string? error;
     private bool loaded;
     private int current;
+    private Visit? visit;
+    private string? saveStatus;
+    private string? saveError;
 
     /// <summary>Identifiant de la ferme visitée ; vide sur /biosecurite, qui propose les fermes du jour.</summary>
     [Parameter]
@@ -129,7 +147,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        (farm, error, loaded, current) = (null, null, false, 0);
+        (farm, error, loaded, current, visit, saveStatus, saveError) = (null, null, false, 0, null, null, null);
         answers.Clear();
         if (string.IsNullOrEmpty(FarmId))
         {
@@ -141,6 +159,20 @@
             await Seeder.EnsureSeededAsync();
             farm = (await Repository.GetFarmsAsync()).FirstOrDefault(candidate => candidate.Id == FarmId);
             error = farm is null ? "Ferme introuvable." : null;
+            if (farm is not null)
+            {
+                // Bilan rattaché à la visite du jour ; reprise des réponses déjà enregistrées (story 8.1).
+                var today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
+                visit = (await Repository.GetVisitsByDateAsync(today)).FirstOrDefault(candidate => candidate.FarmId == FarmId);
+                if (visit is not null && await Repository.GetBiosecurityAsync(visit.Id) is { } saved)
+                {
+                    foreach (var (questionId, answer) in saved.Answers)
+                    {
+                        answers[questionId] = answer;
+                    }
+                }
+            }
+
             loaded = true;
         }
         catch (StorageUnavailableException exception)
@@ -151,7 +183,26 @@
 
     private Answer? Selected(BiosecurityQuestion question) => answers.TryGetValue(question.Id, out var answer) ? answer : null;
 
-    private void Choose(BiosecurityQuestion question, Answer answer) => answers[question.Id] = answer;
+    // Enregistrement automatique à chaque réponse ; en cas d'échec, la réponse reste affichée.
+    private async Task Choose(BiosecurityQuestion question, Answer answer)
+    {
+        answers[question.Id] = answer;
+        if (visit is null)
+        {
+            return;
+        }
+
+        var snapshot = new BiosecurityAnswers(visit.Id, new Dictionary<string, Answer>(answers), TimeProvider.GetLocalNow());
+        try
+        {
+            await Repository.SaveBiosecurityAsync(snapshot);
+            (saveError, saveStatus) = (null, $"Enregistré à {snapshot.UpdatedAt:HH:mm}");
+        }
+        catch (StorageUnavailableException exception)
+        {
+            (saveError, saveStatus) = (exception.Message, null);
+        }
+    }
 
     private static string Tone(RiskLevel level) => level switch
     {

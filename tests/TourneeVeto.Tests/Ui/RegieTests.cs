@@ -6,6 +6,7 @@ using TourneeVeto.Domain;
 using TourneeVeto.Domain.Herd;
 using TourneeVeto.Domain.Regie;
 using TourneeVeto.Domain.Visits;
+using AngleSharp.Dom;
 using TourneeVeto.Ui;
 using TourneeVeto.Ui.Data;
 using TourneeVeto.Ui.Pages;
@@ -27,6 +28,91 @@ public class RegieTests : BunitContext, IAsyncLifetime
         module = JSInterop.SetupModule(IndexedDbVisitRepository.ModulePath);
         module.Setup<bool>("seedIfEmpty", _ => true).SetResult(false);
         module.Setup<IReadOnlyList<Farm>>("getFarms").SetResult(data.Farms);
+        module.Setup<IReadOnlyList<Visit>>("getVisitsByDate", Today).SetResult(data.Visits);
+        module.Setup<IReadOnlyList<CowVisitRecord>>("getVisitRecords", _ => true).SetResult([]);
+        module.SetupVoid("putVisitRecord", _ => true).SetVoidResult();
+    }
+
+    private IRenderedComponent<Regie> RenderWithDemoHerd()
+    {
+        module.Setup<IReadOnlyList<Cow>>("getCowsByFarm", "F001").SetResult(data.Cows);
+        var cut = Render<Regie>(parameters => parameters.Add(p => p.FarmId, "F001"));
+        cut.WaitForElement("article.cow-card");
+        return cut;
+    }
+
+    private static AngleSharp.Dom.IElement OutcomeButton(IRenderedComponent<Regie> cut, string cowId, string label) =>
+        cut.FindAll("article.cow-card")
+            .Single(card => card.QuerySelector(".cow-card__number-value")!.TextContent == cowId)
+            .QuerySelectorAll(".cow-card__outcome")
+            .Single(button => button.TextContent.Trim() == label);
+
+    private string FirstPregnancyCheckCow() => DailyActions.Compute(data.Cows, Today).Items
+        .First(item => item.Motives[0].Action == RegieAction.PregnancyCheck).Cow.Id;
+
+    [Fact]
+    public void Un_resultat_saisi_est_enregistre_aussitot()
+    {
+        var cut = RenderWithDemoHerd();
+        var cowId = FirstPregnancyCheckCow();
+
+        OutcomeButton(cut, cowId, "Positif").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal("Enregistré à 07:30", cut.Find(".saved").TextContent));
+        var record = Assert.IsType<CowVisitRecord>(Assert.Single(module.Invocations["putVisitRecord"]).Arguments[0]);
+        Assert.Equal((data.Visits[0].Id, cowId, ResultOutcome.Positive), (record.VisitId, record.CowId, record.ResultFor(RegieAction.PregnancyCheck)));
+        Assert.Equal("true", OutcomeButton(cut, cowId, "Positif").GetAttribute("aria-pressed"));
+    }
+
+    [Fact]
+    public void Les_saisies_deja_enregistrees_sont_reprises()
+    {
+        var cowId = FirstPregnancyCheckCow();
+        var saved = CowVisitRecord.Empty(data.Visits[0].Id, cowId)
+            .WithResult(RegieAction.PregnancyCheck, ResultOutcome.Negative, new DateTimeOffset(2026, 10, 8, 7, 0, 0, TimeSpan.Zero))
+            .WithNote("Revoir dans 15 j", new DateTimeOffset(2026, 10, 8, 7, 0, 0, TimeSpan.Zero));
+        module.Setup<IReadOnlyList<CowVisitRecord>>("getVisitRecords", data.Visits[0].Id).SetResult([saved]);
+
+        var cut = RenderWithDemoHerd();
+
+        Assert.Equal("true", OutcomeButton(cut, cowId, "Négatif").GetAttribute("aria-pressed"));
+        Assert.Contains(cut.FindAll("textarea"), textarea => textarea.GetAttribute("value") == "Revoir dans 15 j");
+    }
+
+    [Fact]
+    public void Stockage_plein_affiche_le_message_et_garde_la_saisie_visible()
+    {
+        module.SetupVoid("putVisitRecord", _ => true).SetException(new JSException("TOURNEEVETO_STORAGE:Quota:QuotaExceededError plein"));
+        var cut = RenderWithDemoHerd();
+        var cowId = FirstPregnancyCheckCow();
+
+        OutcomeButton(cut, cowId, "Douteux").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal("Enregistrement impossible : espace de stockage plein.", cut.Find("[role=alert]").TextContent));
+        Assert.Equal("true", OutcomeButton(cut, cowId, "Douteux").GetAttribute("aria-pressed"));
+    }
+
+    [Fact]
+    public void La_note_d_une_vache_est_enregistree()
+    {
+        var cut = RenderWithDemoHerd();
+
+        cut.FindAll("textarea")[0].Change("Boiterie AP gauche");
+
+        cut.WaitForAssertion(() => Assert.Single(module.Invocations["putVisitRecord"]));
+        Assert.Equal("Boiterie AP gauche", ((CowVisitRecord)module.Invocations["putVisitRecord"][0].Arguments[0]!).Note);
+    }
+
+    [Fact]
+    public void Sans_visite_prevue_aujourd_hui_la_saisie_est_desactivee()
+    {
+        module.Setup<IReadOnlyList<Visit>>("getVisitsByDate", Today).SetResult([]);
+
+        var cut = RenderWithDemoHerd();
+
+        Assert.Contains("la saisie des résultats est désactivée", cut.Find(".warning").TextContent);
+        Assert.Empty(cut.FindAll(".cow-card__outcome"));
+        Assert.Empty(cut.FindAll("textarea"));
     }
 
     // Le repository n'implémente que IAsyncDisposable (il ferme le module JS) : libérer le contexte de façon asynchrone.

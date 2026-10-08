@@ -4,6 +4,7 @@
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using TourneeVeto.Domain.Biosecurity;
 using TourneeVeto.Domain.Herd;
 using TourneeVeto.Domain.Visits;
 using TourneeVeto.Domain;
@@ -38,6 +39,17 @@ public interface IVisitRepository
 
     /// <summary>Remplace tout le troupeau de l'élevage en une seule transaction ; en cas d'échec, l'ancien troupeau reste intact.</summary>
     Task ReplaceCowsAsync(string farmId, IReadOnlyList<Cow> cows, CancellationToken cancellationToken = default);
+
+    /// <summary>Saisies de la visite (une par vache ayant un résultat ou une note).</summary>
+    Task<IReadOnlyList<CowVisitRecord>> GetVisitRecordsAsync(Guid visitId, CancellationToken cancellationToken = default);
+
+    /// <summary>Enregistre la saisie d'une vache ; une saisie existante pour la même visite et la même vache est remplacée.</summary>
+    Task SaveVisitRecordAsync(CowVisitRecord record, CancellationToken cancellationToken = default);
+
+    /// <summary>Réponses au bilan de biosécurité de la visite ; <c>null</c> si aucune.</summary>
+    Task<BiosecurityAnswers?> GetBiosecurityAsync(Guid visitId, CancellationToken cancellationToken = default);
+
+    Task SaveBiosecurityAsync(BiosecurityAnswers answers, CancellationToken cancellationToken = default);
 
     /// <summary>Redimensionne et stocke la photo choisie dans <paramref name="fileInput"/> ; <c>null</c> si aucun fichier.</summary>
     Task<Guid?> AddPhotoFromInputAsync(Guid visitId, ElementReference fileInput, CancellationToken cancellationToken = default);
@@ -100,6 +112,18 @@ public sealed class IndexedDbVisitRepository(IJSRuntime jsRuntime) : IVisitRepos
 
     public Task ReplaceCowsAsync(string farmId, IReadOnlyList<Cow> cows, CancellationToken cancellationToken = default) =>
         InvokeVoidAsync("replaceCows", cancellationToken, farmId, cows);
+
+    public Task<IReadOnlyList<CowVisitRecord>> GetVisitRecordsAsync(Guid visitId, CancellationToken cancellationToken = default) =>
+        InvokeAsync<IReadOnlyList<CowVisitRecord>>("getVisitRecords", cancellationToken, visitId);
+
+    public Task SaveVisitRecordAsync(CowVisitRecord record, CancellationToken cancellationToken = default) =>
+        InvokeVoidAsync("putVisitRecord", cancellationToken, record);
+
+    public Task<BiosecurityAnswers?> GetBiosecurityAsync(Guid visitId, CancellationToken cancellationToken = default) =>
+        InvokeAsync<BiosecurityAnswers?>("getBiosecurity", cancellationToken, visitId);
+
+    public Task SaveBiosecurityAsync(BiosecurityAnswers answers, CancellationToken cancellationToken = default) =>
+        InvokeVoidAsync("putBiosecurity", cancellationToken, answers);
 
     public Task<Guid?> AddPhotoFromInputAsync(Guid visitId, ElementReference fileInput, CancellationToken cancellationToken = default) =>
         InvokeAsync<Guid?>("addPhotoFromInput", cancellationToken, visitId, fileInput);

@@ -101,6 +101,11 @@
     color: var(--color-on-info-surface);
 }
 
+.state--progress {
+    background: var(--color-warning-surface);
+    color: var(--color-on-warning-surface);
+}
+
 .state--urgent {
     background: var(--color-urgent-surface);
     color: var(--color-on-urgent-surface);

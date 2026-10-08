@@ -2,6 +2,7 @@ using Bunit;
 using TourneeVeto.Domain;
 using TourneeVeto.Domain.Herd;
 using TourneeVeto.Domain.Regie;
+using TourneeVeto.Domain.Visits;
 using TourneeVeto.Ui.Components;
 
 namespace TourneeVeto.Tests.Ui;
@@ -131,6 +132,59 @@ public class CowCardTests : BunitContext
         Assert.Equal(1, selections);
         Assert.Equal("true", cut.Find(".cow-card__select").GetAttribute("aria-pressed"));
         Assert.Contains("cow-card--selected", cut.Find("article").ClassList);
+    }
+
+    [Fact]
+    public void Resultats_proposes_en_une_touche_avec_le_choix_marque()
+    {
+        ResultOutcome? chosen = null;
+        var cut = Render<CowCard>(parameters => parameters
+            .Add(p => p.Cow, DemoCow(lactation: 2))
+            .Add(p => p.Action, RegieAction.PregnancyCheck)
+            .Add(p => p.Urgency, Urgency.Info)
+            .Add(p => p.Outcomes, ResultOptions.For(RegieAction.PregnancyCheck))
+            .Add(p => p.Outcome, ResultOutcome.Negative)
+            .Add(p => p.OnOutcome, (ResultOutcome outcome) => chosen = outcome));
+
+        var buttons = cut.FindAll(".cow-card__outcome");
+        Assert.Equal(["Positif", "Négatif", "Douteux"], buttons.Select(button => button.TextContent.Trim()));
+        Assert.Equal(["false", "true", "false"], buttons.Select(button => button.GetAttribute("aria-pressed")));
+        Assert.Empty(cut.FindAll(".cow-card__primary"));
+
+        buttons[0].Click();
+
+        Assert.Equal(ResultOutcome.Positive, chosen);
+    }
+
+    [Fact]
+    public void Note_modifiable_avec_libelle_et_compteur()
+    {
+        string? saved = null;
+        var cut = Render<CowCard>(parameters => parameters
+            .Add(p => p.Cow, DemoCow(lactation: 2))
+            .Add(p => p.Action, RegieAction.DryOff)
+            .Add(p => p.Urgency, Urgency.Ok)
+            .Add(p => p.Note, "Boiterie")
+            .Add(p => p.OnNoteChanged, (string note) => saved = note));
+
+        Assert.Equal(cut.Find("textarea").Id, cut.Find("label.cow-card__note-label").GetAttribute("for"));
+        Assert.Equal("2000", cut.Find("textarea").GetAttribute("maxlength"));
+        Assert.Equal("8/2000", cut.Find(".cow-card__note-count").TextContent);
+
+        cut.Find("textarea").Change("Boiterie AP gauche,\nrevoir dans 15 j");
+
+        Assert.Equal("Boiterie AP gauche,\nrevoir dans 15 j", saved);
+    }
+
+    [Fact]
+    public void Sans_action_branchee_aucun_bouton_inerte_n_est_affiche()
+    {
+        var cut = Render<CowCard>(parameters => parameters
+            .Add(p => p.Cow, DemoCow(lactation: 2))
+            .Add(p => p.Action, RegieAction.DryOff)
+            .Add(p => p.Urgency, Urgency.Ok));
+
+        Assert.Empty(cut.FindAll("button"));
     }
 
     [Fact]

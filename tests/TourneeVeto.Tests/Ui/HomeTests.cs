@@ -24,6 +24,7 @@ public class HomeTests : BunitContext, IAsyncLifetime
         Services.AddSingleton<TimeProvider>(new FakeTimeProvider(new DateTimeOffset(2026, 10, 8, 7, 30, 0, TimeSpan.Zero)));
         Services.AddTourneeVeto();
         module = JSInterop.SetupModule(IndexedDbVisitRepository.ModulePath);
+        module.Setup<IReadOnlyList<CowVisitRecord>>("getVisitRecords", _ => true).SetResult([]);
     }
 
     // Le repository n'implémente que IAsyncDisposable (il ferme le module JS) : libérer le contexte de façon asynchrone.
@@ -56,6 +57,28 @@ public class HomeTests : BunitContext, IAsyncLifetime
 
         var expectedToSee = data.Farms.Sum(farm => DailyActions.Compute(data.Cows.Where(cow => cow.FarmId == farm.Id), Today).Items.Count);
         Assert.Equal($"{expectedToSee} vache(s) à voir", cut.Find(".summary .chip").TextContent);
+    }
+
+    [Fact]
+    public void Une_visite_avec_des_saisies_est_en_cours()
+    {
+        var data = DemoData.Generate(Today, DemoDataSeeder.Seed);
+        module.Setup<bool>("seedIfEmpty", _ => true).SetResult(false);
+        module.Setup<IReadOnlyList<Farm>>("getFarms").SetResult(data.Farms);
+        module.Setup<IReadOnlyList<Visit>>("getVisitsByDate", Today).SetResult(data.Visits);
+        foreach (var farm in data.Farms)
+        {
+            module.Setup<IReadOnlyList<Cow>>("getCowsByFarm", farm.Id).SetResult([.. data.Cows.Where(cow => cow.FarmId == farm.Id)]);
+        }
+
+        var started = CowVisitRecord.Empty(data.Visits[1].Id, "2001").WithNote("Vue", new DateTimeOffset(2026, 10, 8, 7, 0, 0, TimeSpan.Zero));
+        module.Setup<IReadOnlyList<CowVisitRecord>>("getVisitRecords", data.Visits[1].Id).SetResult([started]);
+
+        var cut = Render<Home>();
+
+        cut.WaitForAssertion(() => Assert.Equal(
+            ["Étape 1 · Suivante", "Étape 2 · En cours", "Étape 3 · En attente"],
+            cut.FindAll(".states .state:first-child").Select(state => state.TextContent)));
     }
 
     [Fact]
