@@ -46,7 +46,8 @@ Le workflow de publication, déclenché sur `main` après les tests, enchaîne :
 3. **copier `index.html` en `404.html`** : GitHub Pages sert ce fichier pour toute page inconnue, Blazor démarre et affiche la bonne route ;
 4. **créer `.nojekyll`** à la racine publiée, pour que `_framework` et `_content` soient servis ;
 5. **recalculer l'empreinte d'`index.html`** dans `service-worker-assets.js` : la réécriture du base href change son contenu, et le service worker refuse de s'installer si l'empreinte ne correspond plus ;
-6. publier avec `actions/upload-pages-artifact` puis `actions/deploy-pages` (source Pages : GitHub Actions).
+6. **ajouter la Content-Security-Policy** (`<meta http-equiv>`, GitHub Pages ne permettant pas d'en-têtes) : `script-src 'self' 'wasm-unsafe-eval'` plus l'empreinte de chaque script en ligne d'index.html (table d'imports, enregistrement du service worker), calculée après normalisation des fins de ligne comme le fait le navigateur ;
+7. publier avec `actions/upload-pages-artifact` puis `actions/deploy-pages` (source Pages : GitHub Actions).
 
 **Prérequis :** l'URL publiée doit correspondre exactement à l'adresse de base, casse comprise. Le dépôt a donc été renommé `tourneeveto` le 2026-10-08 ; URL publiée : `https://houssemeddinelassoued.github.io/tourneeveto/`.
 
@@ -62,7 +63,7 @@ Le workflow de publication, déclenché sur `main` après les tests, enchaîne :
 
 - Les liens profonds rechargés en ligne répondent avec un statut HTTP 404, même si la page s'affiche correctement. Une fois le service worker installé, les navigations sont servies depuis le cache.
 - Étapes de post-traitement (base href, `404.html`, empreinte) fragiles : un oubli casse le site ou le mode hors ligne. Le test de fumée les couvre.
-- Pas d'en-têtes configurables (CSP, durée de cache).
+- Pas d'en-têtes configurables : la CSP passe par une balise `<meta>` (sans `frame-ancestors`), pas de réglage de la durée de cache.
 - GitHub Pages ne sert pas les fichiers Brotli précompressés de Blazor : premier chargement plus lourd (*à mesurer*).
 
 ### Confirmation
