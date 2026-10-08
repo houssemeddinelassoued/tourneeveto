@@ -9,9 +9,9 @@ namespace TourneeVeto.Tests.Domain;
 /// </summary>
 public class BiosecurityScoreTests
 {
-    private const string Section = "Visiteurs et véhicules";
+    private const string DefaultSection = "Visiteurs et véhicules";
 
-    private static BiosecurityQuestion Question(string id, string section = Section, int weight = 1, bool critical = false) =>
+    private static BiosecurityQuestion Question(string id, string section = DefaultSection, int weight = 1, bool critical = false) =>
         new(id, section, $"Question {id}", weight, critical);
 
     /// <summary>Section de questions de poids 1 : <paramref name="yes"/> Oui, <paramref name="partial"/> Partiel, <paramref name="no"/> Non.</summary>
