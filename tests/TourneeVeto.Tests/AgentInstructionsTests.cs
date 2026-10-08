@@ -87,6 +87,43 @@ public partial class AgentInstructionsTests
         Assert.Empty(missing);
     }
 
+    [Fact]
+    public void Agents_Claude_et_Copilot_ont_le_meme_nom_la_meme_description_et_les_memes_instructions()
+    {
+        var root = SolutionRoot.Find();
+        var copilot = Directory.EnumerateFiles(Path.Combine(root, ".github", "agents"), "*.agent.md")
+            .ToDictionary(file => Path.GetFileName(file).Replace(".agent.md", string.Empty, StringComparison.Ordinal), File.ReadAllText);
+        var claude = Directory.EnumerateFiles(Path.Combine(root, ".claude", "agents"), "*.md")
+            .ToDictionary(file => Path.GetFileNameWithoutExtension(file), File.ReadAllText);
+
+        var differences = copilot.Keys.Except(claude.Keys).Select(name => $"{name} : absent de .claude/agents")
+            .Concat(claude.Keys.Except(copilot.Keys).Select(name => $"{name} : absent de .github/agents"))
+            .ToList();
+        foreach (var name in copilot.Keys.Intersect(claude.Keys).Order())
+        {
+            var (copilotFront, copilotBody) = Split(copilot[name]);
+            var (claudeFront, claudeBody) = Split(claude[name]);
+            string Field(string front, string field) => Regex.Match(front, $"^{field}:(.*)$", RegexOptions.Multiline).Groups[1].Value.Trim();
+
+            if (Field(copilotFront, "name") != name || Field(claudeFront, "name") != name)
+            {
+                differences.Add($"{name} : le champ name doit être le nom du fichier");
+            }
+
+            if (Field(copilotFront, "description") != Field(claudeFront, "description"))
+            {
+                differences.Add($"{name} : description différente");
+            }
+
+            if (copilotBody != claudeBody)
+            {
+                differences.Add($"{name} : instructions différentes");
+            }
+        }
+
+        Assert.Empty(differences);
+    }
+
     private static Dictionary<string, string> SkillFrontMatters(string skillsDirectory) =>
         Directory.EnumerateDirectories(skillsDirectory).ToDictionary(
             directory => Path.GetFileName(directory),

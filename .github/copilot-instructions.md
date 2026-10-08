@@ -17,6 +17,10 @@ Seule exception : les scripts de vérification des skills (dotnet run .github/sk
 create-component (.github/skills/create-component, version Claude dans .claude/skills) : composant ou page Razor + CSS isolé + test bUnit à partir des gabarits, vérifiés par check.cs.
 indexeddb-interop (.github/skills/indexeddb-interop, version Claude dans .claude/skills) : accès à IndexedDB (module JS isolé + IVisitRepository), exemples qui fonctionnent.
 
+## Agents
+architect (choix techniques, ADR, schémas) · developer (réalise une tâche du plan) · tester (écrit et lance les tests, uniquement dans tests/) · refactorer (simplifie, comportement inchangé) · security-reviewer (audite les fichiers modifiés, ne corrige rien).
+Tous terminent par le même compte rendu de 5 lignes : Statut, Fichiers, Tests, Points ouverts, Recommandation.
+
 ## Structure (ADR 0002)
 src/TourneeVeto.Domain/  règles métier pures, sans accès au stockage (aucune dépendance à Blazor, au JS ni au navigateur)
 src/TourneeVeto.Ui/      Razor Class Library : pages, mise en page, composants, accès IndexedDB (Data/, wwwroot/js/)
