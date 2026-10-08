@@ -1,0 +1,214 @@
+@page "/fermes/{FarmId}/import"
+@using System.Globalization
+@using Microsoft.AspNetCore.Components.Forms
+@using TourneeVeto.Domain.Herd
+@using TourneeVeto.Domain.Import
+@using TourneeVeto.Domain.Visits
+@using TourneeVeto.Ui.Data
+@using TourneeVeto.Ui.Formatting
+@inject DemoDataSeeder Seeder
+@inject IVisitRepository Repository
+
+@* Import du troupeau depuis un CSV de contrôle laitier (issue #49). L'analyse, le décodage et la fusion sont dans
+   TourneeVeto.Domain/Import ; la page ne fait que lire le fichier, afficher l'aperçu et le choix de fusion.
+   Aucun enregistrement avant la confirmation (lot 3). *@
+
+<PageTitle>Importer le troupeau — TournéeVéto</PageTitle>
+
+<section class="root" aria-labelledby="import-title">
+    <header class="header">
+        <h1 class="title" id="import-title">Importer le troupeau</h1>
+        @if (farm is not null)
+        {
+            <p class="farm">@farm.Name · @farm.Municipality</p>
+        }
+        <a class="back" href="@($"regie/{FarmId}")">Retour à la grille de régie</a>
+    </header>
+
+    @if (loadError is not null)
+    {
+        <p class="error" role="alert">@loadError</p>
+    }
+    else if (farm is not null)
+    {
+        <p class="notice">
+            Fichier CSV du contrôle laitier, 2 Mo au plus. Colonnes attendues : @string.Join(", ", HerdCsvParser.Columns).
+            Dans cette preuve de concept, n'importez que des fichiers fictifs.
+        </p>
+
+        <div class="picker">
+            <label class="label" for="herd-file">Fichier CSV</label>
+            <InputFile id="herd-file" accept=".csv,text/csv" disabled="@reading" OnChange="OnFileSelectedAsync" />
+        </div>
+
+        @if (fileError is not null)
+        {
+            <p class="error" role="alert">@fileError</p>
+        }
+
+        @if (reading)
+        {
+            <p class="status" role="status">Lecture du fichier…</p>
+        }
+
+        @if (result is not null)
+        {
+            <section class="preview" aria-labelledby="preview-title">
+                <h2 class="subtitle" id="preview-title">Aperçu de « @fileName »</h2>
+                <p class="summary" role="status">@Summary</p>
+
+                @if (result.Errors.Count > 0)
+                {
+                    <h3 class="section-title">Lignes ignorées</h3>
+                    <ul class="errors" role="list">
+                        @foreach (var lineError in result.Errors)
+                        {
+                            <li>@lineError</li>
+                        }
+                    </ul>
+                }
+
+                @if (impact is not null)
+                {
+                    <fieldset class="modes">
+                        <legend class="section-title">Appliquer au troupeau existant</legend>
+                        <label class="mode">
+                            <input type="radio" name="import-mode" checked="@(mode == ImportMode.Merge)" @onchange="() => SetMode(ImportMode.Merge)" />
+                            Fusionner : mettre à jour les vaches existantes, garder les autres
+                        </label>
+                        <label class="mode">
+                            <input type="radio" name="import-mode" checked="@(mode == ImportMode.Replace)" @onchange="() => SetMode(ImportMode.Replace)" />
+                            Remplacer : ne garder que les vaches du fichier
+                        </label>
+                    </fieldset>
+                    <p class="impact">
+                        @impact.Added ajoutée(s) · @impact.Updated mise(s) à jour · @impact.Unchanged inchangée(s) · @impact.Removed retirée(s)
+                    </p>
+
+                    <div class="table-scroll">
+                        <table class="cows">
+                            <caption class="section-title">Vaches du fichier</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">N°</th>
+                                    <th scope="col">Nom</th>
+                                    <th scope="col">Lactation</th>
+                                    <th scope="col">Statut</th>
+                                    <th scope="col">Dernier vêlage</th>
+                                    <th scope="col">CCS (k/mL)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var cow in result.Cows)
+                                {
+                                    <tr @key="cow.Id">
+                                        <th scope="row">@cow.Id</th>
+                                        <td>@cow.Name</td>
+                                        <td>@(cow.IsHeifer ? "Génisse" : cow.Lactation.ToString(FrenchCanada))</td>
+                                        <td>@HerdLabels.Status(cow.Status)</td>
+                                        <td>@(cow.LastCalving?.ToString("yyyy-MM-dd", FrenchCanada) ?? "—")</td>
+                                        <td>@(cow.LastSccThousands?.ToString(FrenchCanada) ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        }
+    }
+</section>
+
+@code {
+    private static readonly CultureInfo FrenchCanada = CultureInfo.GetCultureInfo("fr-CA");
+
+    private Farm? farm;
+    private IReadOnlyList<Cow> existingHerd = [];
+    private string? loadError;
+    private string? fileError;
+    private string? fileName;
+    private bool reading;
+    private HerdImportResult? result;
+    private ImportMode mode = ImportMode.Merge;
+    private HerdMergeResult? impact;
+
+    /// <summary>Identifiant de la ferme dont on importe le troupeau.</summary>
+    [Parameter, EditorRequired]
+    public string FarmId { get; set; } = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        (farm, loadError, fileError, result, impact) = (null, null, null, null, null);
+        try
+        {
+            await Seeder.EnsureSeededAsync();
+            farm = (await Repository.GetFarmsAsync()).FirstOrDefault(candidate => candidate.Id == FarmId);
+            if (farm is null)
+            {
+                loadError = "Ferme introuvable.";
+                return;
+            }
+
+            existingHerd = await Repository.GetCowsByFarmAsync(FarmId);
+        }
+        catch (StorageUnavailableException exception)
+        {
+            loadError = exception.Message;
+        }
+    }
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs args)
+    {
+        (fileError, fileName, result, impact) = (null, null, null, null);
+        var file = args.File;
+
+        // Contrôle avant toute lecture : un fichier trop gros n'est jamais chargé en mémoire.
+        if (file.Size > HerdCsvDecoder.MaxFileBytes)
+        {
+            fileError = $"« {file.Name} » fait {Megabytes(file.Size)} Mo : la limite est de 2 Mo. Rien n'a été importé, le troupeau est inchangé.";
+            return;
+        }
+
+        reading = true;
+        try
+        {
+            using var buffer = new MemoryStream();
+            await using (var stream = file.OpenReadStream(HerdCsvDecoder.MaxFileBytes))
+            {
+                await stream.CopyToAsync(buffer);
+            }
+
+            var text = HerdCsvDecoder.Decode(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+            result = HerdCsvParser.Parse(new StringReader(text), FarmId);
+            fileName = file.Name;
+            UpdateImpact();
+        }
+        catch (IOException)
+        {
+            fileError = $"Lecture de « {file.Name} » impossible. Rien n'a été importé, le troupeau est inchangé.";
+        }
+        finally
+        {
+            reading = false;
+        }
+    }
+
+    private void SetMode(ImportMode selected)
+    {
+        mode = selected;
+        UpdateImpact();
+    }
+
+    private void UpdateImpact() =>
+        impact = result is { Cows.Count: > 0 } ? HerdMerge.Merge(existingHerd, result.Cows, mode) : null;
+
+    private string Summary => result switch
+    {
+        null => string.Empty,
+        { Cows.Count: 0 } => $"Aucune vache importable ({result.Errors.Count} erreur(s)).",
+        { Errors.Count: 0 } => $"{result.Cows.Count} vaches prêtes à importer.",
+        _ => $"{result.Cows.Count} vaches prêtes à importer, {result.Errors.Count} ligne(s) ignorée(s).",
+    };
+
+    private static string Megabytes(long bytes) => (bytes / 1024d / 1024d).ToString("0.0", FrenchCanada);
+}

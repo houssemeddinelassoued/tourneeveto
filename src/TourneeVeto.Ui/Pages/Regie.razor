@@ -3,6 +3,7 @@
 @using TourneeVeto.Domain.Regie
 @using TourneeVeto.Domain.Visits
 @using TourneeVeto.Ui.Data
+@using TourneeVeto.Ui.Formatting
 @inject DemoDataSeeder Seeder
 @inject IVisitRepository Repository
 @inject TimeProvider TimeProvider
@@ -21,6 +22,10 @@
             <p class="farm">@farm.Name · @farm.Municipality</p>
         }
         <a class="back" href="">Retour à la tournée</a>
+        @if (farm is not null)
+        {
+            <a class="back" href="@($"fermes/{FarmId}/import")">Importer le troupeau (CSV)</a>
+        }
     </header>
 
     @if (error is not null)
@@ -144,14 +149,7 @@
 
     private static IReadOnlyList<CowCardMetric> Metrics(Cow cow) =>
     [
-        new("Statut", cow.Status switch
-        {
-            ReproStatus.Open => "Vide",
-            ReproStatus.Bred => "Inséminée",
-            ReproStatus.Pregnant => "Gestante",
-            ReproStatus.Dry => "Tarie",
-            _ => cow.Status.ToString(),
-        }),
+        new("Statut", HerdLabels.Status(cow.Status)),
         new("Dernier CCS", cow.LastSccThousands is int scc ? $"{scc} k cellules/mL" : "Aucun contrôle"),
     ];
 }
