@@ -1,13 +1,14 @@
 # TournéeVéto — Périmètre du POC (MoSCoW)
 
 > Source : [PRODUCT.md](../PRODUCT.md). Durée : 5 jours. Équipe : développeurs .NET.
-> Cible technique : Blazor WebAssembly (PWA) publié sur GitHub Pages, aucun backend, données dans IndexedDB, visite complète réalisable hors ligne sur tablette.
+> Cible technique : Blazor WebAssembly (PWA) publié sur GitHub Pages sous `/tourneeveto/`, aucun backend, données dans IndexedDB, visite complète réalisable hors ligne sur tablette.
+> Architecture : [schéma C4](architecture.md) · décisions : [ADR 0001 stockage](adr/0001-stockage.md), [ADR 0002 structure de la solution](adr/0002-structure-solution.md), [ADR 0003 hébergement](adr/0003-hebergement.md).
 > Règle de cadrage : les « Must » doivent tenir en 3,5 jours de développement environ, pour garder 1,5 jour pour la stabilisation, les tests de bout en bout et la démo.
 > Outils de test visés : xUnit (règles métier), bUnit (composants), Playwright for .NET (parcours, hors ligne, mise en page), exécutés sur la sortie de `dotnet publish`, car le service worker n'est actif qu'en version publiée.
 
 | Fonctionnalité | MoSCoW | Justification | Critère de succès |
-|---|---|---|---|
-| Règles métier dans une bibliothèque .NET indépendante de l'interface (`TourneeVeto.Domain`) | Must | Condition de réutilisation en WPF et MAUI ; rend les règles testables sans navigateur. | Le projet Domain ne référence ni `Microsoft.AspNetCore.Components` ni `Microsoft.JSInterop` : un test d'architecture (NetArchTest ou équivalent) passe dans la CI. |
+| --- | --- | --- | --- |
+| Structure de la solution : `TourneeVeto.Domain` + Razor Class Library `TourneeVeto.UI` + hôte `TourneeVeto.Web` ([ADR 0002](adr/0002-structure-solution.md)) | Must | Seul l'hôte change pour WPF et MAUI ; rend les règles testables sans navigateur. | Tests d'architecture (NetArchTest ou équivalent) dans la CI : le Domain ne référence ni `Microsoft.AspNetCore.Components` ni `Microsoft.JSInterop`, et l'hôte Web ne contient aucun composant routable (`@page`). |
 | Jeu de données fictif chargé au premier lancement | Must | Le POC n'a ni import ni connexion externe ; sans données, aucun parcours n'est démontrable. Les dates sont calculées par rapport au jour courant pour que la démo fonctionne quel que soit le jour. | Test Playwright avec IndexedDB vide : après le premier lancement, l'application contient 5 fermes, au moins 300 vaches et une tournée du jour d'au moins 3 visites, et chaque ferme de la tournée a au moins 1 vache pour chaque motif de régie. Après un 2e lancement, les données saisies entre-temps sont intactes (pas de rechargement par-dessus). |
 | Fonctionnement hors ligne (service worker, mise en cache de l'application) | Must | Pas de réseau dans les étables ; c'est la contrainte principale du produit. | Test Playwright : 1er chargement en ligne, attente de l'activation du service worker, puis `SetOfflineAsync(true)` et rechargement. Les parcours 1, 2 et 3 s'exécutent jusqu'au rapport sans erreur et sans requête réseau bloquante. |
 | Tournée du jour | Must | Point d'entrée du parcours 1. | Test bUnit : avec un jeu de 6 visites sur 3 dates différentes, l'écran affiche exactement les visites du jour, dans l'ordre défini, avec le nom de la ferme et le statut de la visite (à faire / en cours / terminée). |
@@ -18,13 +19,12 @@
 | Recommandations en texte libre | Must | Le producteur doit savoir quoi faire après la visite (persona Marc). | Test bUnit : le texte saisi est enregistré et réapparaît à l'identique (accents et retours à la ligne compris) après rechargement du composant. |
 | Rapport de visite imprimable (impression ou PDF via le navigateur) | Must | Seul livrable remis au producteur ; termine le parcours 3. | Test Playwright : `PdfAsync` en format Lettre sur l'écran du rapport. Le PDF contient le nom de la ferme, la date, chaque ligne de régie avec son résultat, les scores de biosécurité, les recommandations et la mention « Données fictives ». Aucun élément de navigation n'apparaît à l'impression. |
 | Interface utilisable sur tablette | Must | Usage dans l'étable, mains gantées (persona Dre Mélanie). | Test Playwright en 768×1024 et 1024×768 sur chaque écran : pas de défilement horizontal (`scrollWidth <= clientWidth`) et toutes les cibles interactives mesurent au moins 44×44 px. |
-| Publication sur GitHub Pages via GitHub Actions | Must | Le POC doit être accessible par URL pour la démo et les tests terrain. | Le workflow réussit sur `main`. Un test de fumée Playwright sur l'URL publiée vérifie qu'un lien profond (ex. `/TourneeVeto/fermes/F001`) rechargé directement renvoie la bonne page (base href et repli `404.html` corrects). |
+| Publication sur GitHub Pages via GitHub Actions | Must | Le POC doit être accessible par URL pour la démo et les tests terrain. | Le workflow réussit sur `main`. Un test de fumée Playwright sur l'URL publiée vérifie qu'un lien profond (ex. `/tourneeveto/fermes/F001`) rechargé directement renvoie la bonne page (base href, repli `404.html` et `.nojekyll` corrects, voir [ADR 0003](adr/0003-hebergement.md)). |
 | Recherche d'une vache par numéro dans la grille de régie | Should | Accélère la saisie quand la vache se présente dans un ordre imprévu ; non bloquant sur une grille de 10 à 20 vaches. | — |
 | Points en suspens depuis la visite précédente (ex. DG douteux à revoir) | Should | Frustration principale du persona Dr Julien, mais nécessite au moins 2 visites dans l'historique. | — |
 | Mise à jour du statut de la vache après saisie (DG positif → vêlage prévu ; tarie → statut tarie) | Should | Rend la visite suivante cohérente ; non visible dans une démo d'une seule visite. | — |
-| Sauvegarde et restauration manuelles (export/import JSON) | Should | Seul moyen de limiter la perte de données locales (voir risque 1). | — |
+| Photos par vache ou par visite (prise de vue sur la tablette, redimensionnée, stockée localement, reprise dans le rapport) | Should | Documente une lésion, une boiterie ou une installation ; stockage prévu par l'[ADR 0001](adr/0001-stockage.md), mais non nécessaire aux 3 parcours. | — |
 | Demande de stockage persistant (`navigator.storage.persist()`) et application installable (manifeste, icônes) | Should | Réduit le risque d'effacement par le navigateur ; améliore l'accès hors ligne depuis l'écran d'accueil. | — |
-| Écrans dans une Razor Class Library | Should | Permet de réutiliser les écrans dans WPF et MAUI via BlazorWebView. | — |
 | Réordonner les visites de la tournée | Should | Tournées réorganisées en cours de journée (urgences). | — |
 | Réinitialiser les données de démo | Should | Remise à zéro rapide entre deux démonstrations ou tests terrain. | — |
 | Saisie de nouveaux événements (vêlage, IA) | Could | Utile en conditions réelles, mais le jeu fictif suffit pour démontrer les règles. | — |
@@ -36,12 +36,13 @@
 | Connexion à Lactanet, à l'ATQ ou à des logiciels de troupeau ou de clinique ; import de données réelles | Won't | Hors périmètre de PRODUCT.md ; données fictives uniquement. | — |
 | Questionnaire officiel proAction, prescriptions, registre de traitements, facturation | Won't | Enjeux réglementaires et professionnels hors POC. | — |
 | Itinéraire, cartographie, notifications, envoi de courriels | Won't | Sans lien avec la validation des 3 parcours. | — |
-| Applications WPF et MAUI | Won't | Seule la transposabilité est visée (Domain séparé, Must ; Razor Class Library, Should). | — |
+| Sauvegarde et restauration manuelles (export/import JSON) | Won't (V2) | Les données restent sur un seul appareil ([ADR 0001](adr/0001-stockage.md)) ; l'export/import est la première évolution prévue après le POC (voir risque 1). | — |
+| Applications WPF et MAUI | Won't | Seule la transposabilité est visée (structure Domain + Razor Class Library + hôte, Must). | — |
 
 ## Risques produit
 
 1. **Perte de données locales.** Le navigateur peut effacer IndexedDB (cache vidé, stockage saturé, politique d'éviction de Safari sur iPadOS pour un site non installé). Perdre une visite saisie ferait perdre la confiance du vétérinaire, et il n'existe aucune copie côté serveur. De plus, l'application doit avoir été ouverte une fois en ligne pour fonctionner hors ligne.
-   *Atténuation :* stockage persistant et application installable (Should) ; export JSON (Should) ; message clair au premier lancement (« ouvrir l'application en ligne avant la tournée »).
+   *Atténuation :* stockage persistant et application installable (Should) ; export/import JSON en V2 ; message clair au premier lancement (« ouvrir l'application en ligne avant la tournée »).
 2. **Saisie plus lente que le papier dans l'étable.** Si la saisie d'un résultat demande plus de gestes qu'une note manuscrite (gants, tablette posée, vache qui bouge), les vétérinaires reviendront au papier et la valeur « sans ressaisie » disparaît.
    *Atténuation :* au plus 2 touches par résultat courant (DG +/−, tarie) ; test chronométré avec 1 ou 2 vétérinaires sur une grille de 15 vaches pendant la démo.
 3. **Règles simplifiées perçues comme fausses ou comme une recommandation clinique.** Les seuils (DG à 30 j, tarissement à 60 j, CCS à 200 000) varient selon les praticiens et les méthodes. Une grille qui inclut ou oublie des vaches à tort discrédite l'outil, et un rapport remis au producteur pourrait être lu comme un avis officiel.

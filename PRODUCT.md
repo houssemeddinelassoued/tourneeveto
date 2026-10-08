@@ -13,7 +13,7 @@
 ## 2. Personas
 
 | Persona | Objectif | Frustration | Contexte d'usage |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Dre Mélanie, vétérinaire rurale en pratique mixte** (petite clinique, 4 à 8 fermes/jour, urgences fréquentes) | Enchaîner les visites sans oublier d'animal ni d'action, rentrer sans ressaisie | Notes papier illisibles ou perdues, tournée réorganisée en cours de journée, pas de réseau dans les étables | Téléphone ou tablette dans l'étable, mains sales ou gantées ; ordinateur le soir pour les rapports |
 | **Dr Julien, vétérinaire en suivi de troupeau** (visites planifiées toutes les 2 à 4 semaines, axées reproduction) | Disposer d'une grille de régie fiable par ferme et suivre l'évolution d'une visite à l'autre | Liste de régie à reconstituer à partir de plusieurs sources ; difficulté à voir ce qui reste en suspens depuis la dernière visite | Préparation la veille sur ordinateur ; tablette pendant la visite ; rapport remis au producteur |
 | **Marc, producteur laitier** (60 vaches en stabulation libre, adhérent au contrôle laitier) | Savoir clairement quoi faire après la visite (vaches à tarir, à revoir, mesures de biosécurité) | Recommandations orales oubliées, rapport reçu tard ou incomplet | Ne touche pas l'application ; lit le rapport imprimé ou en PDF |
@@ -53,7 +53,7 @@
 *Les valeurs chiffrées sont des règles simplifiées pour le POC, paramétrables, non des recommandations cliniques.*
 
 | Terme | Définition |
-|---|---|
+| --- | --- |
 | **Élevage / ferme** | Exploitation laitière suivie par le vétérinaire : un producteur, une adresse, un troupeau de vaches identifiées par un numéro. Au Québec, on parle couramment de « ferme ». |
 | **Visite** | Passage planifié du vétérinaire dans une ferme, à une date donnée, qui produit des résultats de régie, éventuellement un bilan de biosécurité, et un rapport. Une tournée est l'ensemble ordonné des visites d'une journée. |
 | **Régie** | Gestion courante du troupeau. La **grille (ou liste) de régie** est la liste des vaches sur lesquelles une action est attendue lors de la visite, avec le motif (à confirmer gestante, à tarir, post-vêlage, à inséminer, etc.). |
