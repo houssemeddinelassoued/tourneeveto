@@ -76,4 +76,4 @@
 | Post-vêlage | Vêlée depuis 21 à 35 jours | À faire |
 | Tarissement | Gestante non tarie, vêlage prévu dans 60 jours ou moins | Normal |
 
-Une vache qui répond à plusieurs motifs apparaît une seule fois, avec l'urgence la plus élevée. Une date incohérente (IA ou vêlage postérieurs à la visite) ou une gestante sans date d'IA est signalée comme anomalie, sans motif calculé.
+Une vache qui répond à plusieurs motifs apparaît une seule fois, avec l'urgence la plus élevée. Une date incohérente (IA ou vêlage postérieurs à la visite) ou une gestante sans date d'IA est signalée comme anomalie (urgence au moins « À surveiller ») ; seuls les motifs qui dépendent de cette date sont ignorés, le CCS reste toujours évalué.

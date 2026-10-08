@@ -20,6 +20,9 @@ public static class DemoData
     public const int HighSccCows = 4;
     public const int Heifers = 5;
     public const int VisitsToday = 3;
+    public const int PregnancyChecksOverdue = 1;
+    public const int PostCalvingChecksDue = 2;
+    public const int OpenCowsOverdue = 1;
 
     // Répartition des autres vaches, qui ne déclenchent aucune des actions ci-dessus.
     private const int MidPregnancyCows = 22;
@@ -62,6 +65,9 @@ public static class DemoData
 
         AddMany(drafts, CalvingsDueWithin14Days, _ => generator.CalvingSoon());
         AddMany(drafts, PregnancyChecksDue, _ => generator.PregnancyCheckDue());
+        AddMany(drafts, PregnancyChecksOverdue, _ => generator.PregnancyCheckOverdue());
+        AddMany(drafts, PostCalvingChecksDue, _ => generator.PostCalvingDue());
+        AddMany(drafts, OpenCowsOverdue, _ => generator.OpenOverdue());
         AddMany(drafts, DryOffsDue, _ => generator.DryOffDue());
         AddMany(drafts, Heifers, i => generator.Heifer(bred: i < BredHeifers));
         AddMany(drafts, MidPregnancyCows, _ => generator.MidPregnancy());
@@ -143,16 +149,20 @@ public static class DemoData
         /// <summary>Inséminée il y a 30 à 45 jours, sans diagnostic : diagnostic de gestation à faire.</summary>
         public CowDraft PregnancyCheckDue() => Bred(daysSinceInsemination: random.Next(30, 46));
 
+        /// <summary>Inséminée il y a 46 à 60 jours, sans diagnostic : DG en retard.</summary>
+        public CowDraft PregnancyCheckOverdue() => Bred(daysSinceInsemination: random.Next(46, 61));
+
+        /// <summary>Vêlée il y a 21 à 35 jours, pas encore inséminée : examen post-vêlage.</summary>
+        public CowDraft PostCalvingDue() => Open(daysSinceCalving: random.Next(21, 36), highScc: false);
+
+        /// <summary>Vêlée il y a 61 à 90 jours, toujours pas inséminée : vache vide.</summary>
+        public CowDraft OpenOverdue() => Open(daysSinceCalving: random.Next(61, 91), highScc: false);
+
         /// <summary>Inséminée il y a 3 à 25 jours : trop tôt pour le diagnostic de gestation.</summary>
         public CowDraft RecentlyBred() => Bred(daysSinceInsemination: random.Next(3, 26));
 
-        /// <summary>Vêlée il y a 5 à 55 jours, pas encore inséminée depuis.</summary>
-        public CowDraft FreshOpen(bool highScc)
-        {
-            var lastCalving = today.AddDays(-random.Next(5, 56));
-            // Dernière insémination : celle qui a donné ce vêlage.
-            return Lactating(lastCalving, lastCalving.AddDays(-GestationDays), ReproStatus.Open, highScc);
-        }
+        /// <summary>Vêlée il y a 36 à 55 jours, pas encore inséminée : hors des fenêtres post-vêlage et vache vide.</summary>
+        public CowDraft FreshOpen(bool highScc) => Open(daysSinceCalving: random.Next(36, 56), highScc);
 
         /// <summary>Génisse de 12 à 20 mois ; inséminée il y a 5 à 25 jours si <paramref name="bred"/>.</summary>
         public CowDraft Heifer(bool bred)
@@ -168,6 +178,13 @@ public static class DemoData
             var insemination = today.AddDays(daysToCalving - GestationDays);
             var lastCalving = insemination.AddDays(-random.Next(60, 121));
             return Lactating(lastCalving, insemination, status, highScc: false);
+        }
+
+        private CowDraft Open(int daysSinceCalving, bool highScc)
+        {
+            var lastCalving = today.AddDays(-daysSinceCalving);
+            // Dernière insémination : celle qui a donné ce vêlage.
+            return Lactating(lastCalving, lastCalving.AddDays(-GestationDays), ReproStatus.Open, highScc);
         }
 
         private CowDraft Bred(int daysSinceInsemination)
