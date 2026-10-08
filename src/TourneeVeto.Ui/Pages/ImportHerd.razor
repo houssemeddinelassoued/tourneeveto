@@ -11,7 +11,7 @@
 
 @* Import du troupeau depuis un CSV de contrôle laitier (issue #49). L'analyse, le décodage et la fusion sont dans
    TourneeVeto.Domain/Import ; la page ne fait que lire le fichier, afficher l'aperçu et le choix de fusion.
-   Aucun enregistrement avant la confirmation (lot 3). *@
+   Rien n'est enregistré avant la confirmation : fusion via SaveCowsAsync, remplacement via ReplaceCowsAsync. *@
 
 <PageTitle>Importer le troupeau — TournéeVéto</PageTitle>
 
@@ -44,6 +44,11 @@
         @if (fileError is not null)
         {
             <p class="error" role="alert">@fileError</p>
+        }
+
+        @if (saved is not null)
+        {
+            <p class="success" role="status">@saved</p>
         }
 
         @if (reading)
@@ -84,6 +89,10 @@
                     <p class="impact">
                         @impact.Added ajoutée(s) · @impact.Updated mise(s) à jour · @impact.Unchanged inchangée(s) · @impact.Removed retirée(s)
                     </p>
+
+                    <button type="button" class="confirm" disabled="@saving" @onclick="ConfirmAsync">
+                        @(saving ? "Enregistrement…" : $"Confirmer l'import de {result.Cows.Count} vaches")
+                    </button>
 
                     <div class="table-scroll">
                         <table class="cows">
@@ -131,6 +140,8 @@
     private HerdImportResult? result;
     private ImportMode mode = ImportMode.Merge;
     private HerdMergeResult? impact;
+    private bool saving;
+    private string? saved;
 
     /// <summary>Identifiant de la ferme dont on importe le troupeau.</summary>
     [Parameter, EditorRequired]
@@ -159,7 +170,7 @@
 
     private async Task OnFileSelectedAsync(InputFileChangeEventArgs args)
     {
-        (fileError, fileName, result, impact) = (null, null, null, null);
+        (fileError, fileName, result, impact, saved) = (null, null, null, null, null);
         var file = args.File;
 
         // Contrôle avant toute lecture : un fichier trop gros n'est jamais chargé en mémoire.
@@ -190,6 +201,42 @@
         finally
         {
             reading = false;
+        }
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (result is not { Cows.Count: > 0 } || impact is null)
+        {
+            return;
+        }
+
+        saving = true;
+        fileError = null;
+        try
+        {
+            if (mode == ImportMode.Replace)
+            {
+                await Repository.ReplaceCowsAsync(FarmId, result.Cows);
+            }
+            else
+            {
+                // Une vache est identifiée par [farmId, id] : réécrire les vaches du fichier suffit, sans doublon.
+                await Repository.SaveCowsAsync(result.Cows);
+            }
+
+            saved = $"Import enregistré : {impact.Added} ajoutée(s), {impact.Updated} mise(s) à jour, {impact.Unchanged} inchangée(s), {impact.Removed} retirée(s).";
+            existingHerd = impact.Herd;
+            (result, impact, fileName) = (null, null, null);
+        }
+        catch (StorageUnavailableException exception)
+        {
+            // L'aperçu reste affiché : le vétérinaire peut réessayer sans recharger le fichier.
+            fileError = exception.Message;
+        }
+        finally
+        {
+            saving = false;
         }
     }
 

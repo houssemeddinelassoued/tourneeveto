@@ -54,6 +54,20 @@ public class IndexedDbVisitRepositoryTests : BunitContext
     }
 
     [Fact]
+    public async Task Remplacer_le_troupeau_envoie_la_ferme_et_les_vaches_en_un_seul_appel()
+    {
+        var cows = DemoData.Generate(Today, seed: 42).Cows.Where(cow => cow.FarmId == "F001").ToList();
+        var module = JSInterop.SetupModule(IndexedDbVisitRepository.ModulePath);
+        module.SetupVoid("replaceCows", _ => true).SetVoidResult();
+        await using var repository = new IndexedDbVisitRepository(JSInterop.JSRuntime);
+
+        await repository.ReplaceCowsAsync("F001", cows);
+
+        var invocation = Assert.Single(module.Invocations["replaceCows"]);
+        Assert.Equal(["F001", cows], invocation.Arguments);
+    }
+
+    [Fact]
     public async Task Quota_depasse_devient_StorageUnavailableException()
     {
         var module = JSInterop.SetupModule(IndexedDbVisitRepository.ModulePath);

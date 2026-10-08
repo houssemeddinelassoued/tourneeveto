@@ -4,14 +4,14 @@
 // convertie en StorageUnavailableException côté C#.
 
 const DB_NAME = "tourneeveto";
-const DB_VERSION = 1; // À incrémenter à chaque changement de schéma, avec une nouvelle étape dans upgrade().
+const DB_VERSION = 2; // À incrémenter à chaque changement de schéma, avec une nouvelle étape dans upgrade().
 const MAX_PHOTO_SIZE = 1600;
 const ERROR_PREFIX = "TOURNEEVETO_STORAGE:";
 
 let dbPromise;
 
 // Une étape par version : une base existante ne rejoue que les étapes qui lui manquent.
-function upgrade(db, oldVersion) {
+function upgrade(db, oldVersion, transaction) {
     if (oldVersion < 1) {
         db.createObjectStore("farms", { keyPath: "id" });
 
@@ -24,6 +24,18 @@ function upgrade(db, oldVersion) {
 
         const photos = db.createObjectStore("photos", { keyPath: "id" });
         photos.createIndex("visitId", "visitId");
+    }
+
+    if (oldVersion < 2) {
+        // Version 2 : une vache est identifiée par [farmId, id], deux fermes peuvent avoir le même numéro (import CSV, #49).
+        // La clé d'un store ne se modifie pas : copie des vaches, recréation du store, réécriture, dans la même transaction.
+        const read = transaction.objectStore("cows").getAll();
+        read.onsuccess = () => {
+            db.deleteObjectStore("cows");
+            const cows = db.createObjectStore("cows", { keyPath: ["farmId", "id"] });
+            cows.createIndex("farmId", "farmId");
+            putAll(cows, read.result);
+        };
     }
 }
 
@@ -40,7 +52,7 @@ function openDb() {
         }
 
         const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onupgradeneeded = (event) => upgrade(request.result, event.oldVersion);
+        request.onupgradeneeded = (event) => upgrade(request.result, event.oldVersion, request.transaction);
         request.onsuccess = () => {
             const db = request.result;
             // Une nouvelle version ouverte ailleurs (autre onglet) : libérer la base pour sa migration.
@@ -159,6 +171,22 @@ export function getCowsByFarm(farmId) {
 
 export function putCows(cows) {
     return run("cows", "readwrite", (transaction) => putAll(transaction.objectStore("cows"), cows));
+}
+
+// Remplace tout le troupeau d'une ferme en une seule transaction : en cas d'échec, l'ancien troupeau reste intact.
+export function replaceCows(farmId, cows) {
+    return run("cows", "readwrite", (transaction) => {
+        const store = transaction.objectStore("cows");
+        const cursor = store.index("farmId").openKeyCursor(IDBKeyRange.only(farmId));
+        cursor.onsuccess = () => {
+            if (cursor.result) {
+                store.delete(cursor.result.primaryKey);
+                cursor.result.continue();
+            } else {
+                putAll(store, cows);
+            }
+        };
+    });
 }
 
 // --- Photos : redimensionnées et stockées en Blob sans passer par .NET (ADR 0001) ---

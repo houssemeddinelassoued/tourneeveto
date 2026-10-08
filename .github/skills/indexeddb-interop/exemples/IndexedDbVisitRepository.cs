@@ -33,7 +33,11 @@ public interface IVisitRepository
 
     Task<IReadOnlyList<Cow>> GetCowsByFarmAsync(string farmId, CancellationToken cancellationToken = default);
 
+    /// <summary>Ajoute ou met à jour des vaches ; une vache est identifiée par son élevage et son numéro.</summary>
     Task SaveCowsAsync(IReadOnlyList<Cow> cows, CancellationToken cancellationToken = default);
+
+    /// <summary>Remplace tout le troupeau de l'élevage en une seule transaction ; en cas d'échec, l'ancien troupeau reste intact.</summary>
+    Task ReplaceCowsAsync(string farmId, IReadOnlyList<Cow> cows, CancellationToken cancellationToken = default);
 
     /// <summary>Redimensionne et stocke la photo choisie dans <paramref name="fileInput"/> ; <c>null</c> si aucun fichier.</summary>
     Task<Guid?> AddPhotoFromInputAsync(Guid visitId, ElementReference fileInput, CancellationToken cancellationToken = default);
@@ -93,6 +97,9 @@ public sealed class IndexedDbVisitRepository(IJSRuntime jsRuntime) : IVisitRepos
 
     public Task SaveCowsAsync(IReadOnlyList<Cow> cows, CancellationToken cancellationToken = default) =>
         InvokeVoidAsync("putCows", cancellationToken, cows);
+
+    public Task ReplaceCowsAsync(string farmId, IReadOnlyList<Cow> cows, CancellationToken cancellationToken = default) =>
+        InvokeVoidAsync("replaceCows", cancellationToken, farmId, cows);
 
     public Task<Guid?> AddPhotoFromInputAsync(Guid visitId, ElementReference fileInput, CancellationToken cancellationToken = default) =>
         InvokeAsync<Guid?>("addPhotoFromInput", cancellationToken, visitId, fileInput);

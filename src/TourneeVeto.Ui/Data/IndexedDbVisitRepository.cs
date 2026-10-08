@@ -42,6 +42,9 @@ public sealed class IndexedDbVisitRepository(IJSRuntime jsRuntime) : IVisitRepos
     public Task SaveCowsAsync(IReadOnlyList<Cow> cows, CancellationToken cancellationToken = default) =>
         InvokeVoidAsync("putCows", cancellationToken, cows);
 
+    public Task ReplaceCowsAsync(string farmId, IReadOnlyList<Cow> cows, CancellationToken cancellationToken = default) =>
+        InvokeVoidAsync("replaceCows", cancellationToken, farmId, cows);
+
     public Task<Guid?> AddPhotoFromInputAsync(Guid visitId, ElementReference fileInput, CancellationToken cancellationToken = default) =>
         InvokeAsync<Guid?>("addPhotoFromInput", cancellationToken, visitId, fileInput);
 

@@ -51,7 +51,7 @@ Modalités :
 
 - Modèle détaillé et exemples qui fonctionnent : skill `indexeddb-interop` (.github/skills/indexeddb-interop).
 - Un module ES unique (`wwwroot/js/visitStore.js` de la Razor Class Library, voir [ADR 0002](0002-structure-solution.md)), importé à la demande via `IJSObjectReference` et libéré dans `DisposeAsync`, sans dépendance externe.
-- Base « tourneeveto » ; object stores `farms`, `visits` (index `farmId`, `date`), `cows` (index `farmId`), `photos` (index `visitId`) ; jeu de démonstration chargé en une transaction, seulement si la base est vide.
+- Base « tourneeveto » ; object stores `farms`, `visits` (index `farmId`, `date`), `cows` (clé `[farmId, id]` depuis la version 2 du schéma, index `farmId`), `photos` (index `visitId`) ; jeu de démonstration chargé en une transaction, seulement si la base est vide.
 - `QuotaExceededError` et base indisponible remontent en `StorageUnavailableException`, affichée par l'interface.
 - Photos stockées en `Blob` et redimensionnées côté JS, sans passer par .NET ; le Domain ne manipule que leur identifiant.
 - Schéma versionné (`onupgradeneeded`), une migration par version.
