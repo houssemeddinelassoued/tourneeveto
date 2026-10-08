@@ -28,6 +28,7 @@
 | Réordonner les visites de la tournée | Should | Tournées réorganisées en cours de journée (urgences). | — |
 | Réinitialiser les données de démo | Should | Remise à zéro rapide entre deux démonstrations ou tests terrain. | — |
 | Saisie de nouveaux événements (vêlage, IA) | Could | Utile en conditions réelles, mais le jeu fictif suffit pour démontrer les règles. | — |
+| Import du troupeau depuis un CSV de contrôle laitier ([#49](https://github.com/houssemeddinelassoued/tourneeveto/issues/49)) | Could | Évite la ressaisie du troupeau ; testé et démontré avec des fichiers fictifs uniquement (données réelles hors POC). | — |
 | Paramétrage des seuils des règles dans l'interface | Could | Les seuils sont déjà configurables par fichier (Must) ; l'écran est un confort. | — |
 | Ajout ou modification de fermes et de visites | Could | Hors des 3 parcours clés ; le jeu fictif couvre la démo. | — |
 | Indicateurs de troupeau dans la fiche ferme (taux de gestation, CCS moyen) | Could | Valeur de conseil réelle, mais hors des parcours clés. | — |

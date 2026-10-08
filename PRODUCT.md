@@ -41,7 +41,7 @@
 
 - Backend, synchronisation entre appareils, comptes, partage multi-utilisateurs.
 - Connexion à des systèmes externes (Lactanet, ATQ, logiciels de gestion de troupeau ou de clinique) ; seul un jeu de données fictif embarqué est chargé au premier lancement, puis complété par saisie.
-- Import de fichiers de producteurs réels, données nominatives ou réelles.
+- Import de fichiers de producteurs réels, données nominatives ou réelles : l'import CSV du troupeau (#49) existe, mais n'est testé et démontré qu'avec des fichiers fictifs.
 - Reproduction du questionnaire officiel proAction ou valeur de certification du bilan de biosécurité.
 - Prescriptions, ordonnances, registre de traitements, gestion des médicaments, facturation.
 - Optimisation d'itinéraire, cartographie, géolocalisation.
