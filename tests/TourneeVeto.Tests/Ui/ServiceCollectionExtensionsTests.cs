@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
+using TourneeVeto.Domain.Regie;
 using TourneeVeto.Ui;
 using TourneeVeto.Ui.Data;
 
@@ -17,6 +18,7 @@ public class ServiceCollectionExtensionsTests
         Assert.Equal(ServiceLifetime.Scoped, repository.Lifetime);
         Assert.Equal(typeof(IndexedDbVisitRepository), repository.ImplementationType);
         Assert.Equal(ServiceLifetime.Scoped, Assert.Single(services, descriptor => descriptor.ServiceType == typeof(DemoDataSeeder)).Lifetime);
+        Assert.Same(RegieThresholds.Default, Assert.Single(services, descriptor => descriptor.ServiceType == typeof(RegieThresholds)).ImplementationInstance);
     }
 
     [Fact]

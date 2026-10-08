@@ -30,9 +30,11 @@
         <ol class="visits" role="list">
             @foreach (var visit in visits)
             {
-                <li class="visit">
-                    <span class="farm">@FarmName(visit.FarmId)</span>
-                    <span class="reason">@visit.Reason</span>
+                <li>
+                    <a class="visit" href="@($"regie/{visit.FarmId}")">
+                        <span class="farm">@FarmName(visit.FarmId)</span>
+                        <span class="reason">@visit.Reason</span>
+                    </a>
                 </li>
             }
         </ol>

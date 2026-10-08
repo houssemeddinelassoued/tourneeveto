@@ -1,0 +1,157 @@
+@page "/regie/{FarmId}"
+@using TourneeVeto.Domain.Herd
+@using TourneeVeto.Domain.Regie
+@using TourneeVeto.Domain.Visits
+@using TourneeVeto.Ui.Data
+@inject DemoDataSeeder Seeder
+@inject IVisitRepository Repository
+@inject TimeProvider TimeProvider
+@inject RegieThresholds Thresholds
+
+@* Grille de régie d'une ferme (maquettes design/stitch/*/regie.png). Les motifs et urgences sont calculés par
+   DailyActions (TourneeVeto.Domain) ; la page ne fait que charger, filtrer l'affichage et formater les libellés. *@
+
+<PageTitle>Grille de régie — TournéeVéto</PageTitle>
+
+<section class="root" aria-labelledby="regie-title" aria-busy="@(grid is null && error is null ? "true" : "false")">
+    <header class="header">
+        <h1 class="title" id="regie-title">Grille de régie</h1>
+        @if (farm is not null)
+        {
+            <p class="farm">@farm.Name · @farm.Municipality</p>
+        }
+        <a class="back" href="">Retour à la tournée</a>
+    </header>
+
+    @if (error is not null)
+    {
+        <p class="error" role="alert">@error</p>
+    }
+    else if (grid is null)
+    {
+        <p class="status">Chargement de la grille…</p>
+    }
+    else if (farm is null)
+    {
+        <p class="error" role="alert">Ferme introuvable.</p>
+    }
+    else
+    {
+        @if (grid.UsesDefaultThresholds)
+        {
+            <p class="warning" role="status">Configuration des seuils invalide : valeurs par défaut utilisées.</p>
+        }
+
+        @if (grid.Items.Count == 0)
+        {
+            <p class="status">Aucune action de régie pour cette visite.</p>
+        }
+        else
+        {
+            <div class="filters" role="group" aria-label="Filtrer par motif">
+                <button type="button" class="filter" aria-pressed="@Pressed(null)" @onclick="() => filter = null">
+                    Tous (@grid.Items.Count)
+                </button>
+                @foreach (var (action, count) in ActionCounts)
+                {
+                    <button type="button" class="filter" aria-pressed="@Pressed(action)" @onclick="() => filter = action">
+                        @ActionLabel(action) (@count)
+                    </button>
+                }
+            </div>
+
+            <ul class="cows" role="list">
+                @foreach (var item in VisibleItems)
+                {
+                    var primary = item.Motives.FirstOrDefault();
+                    <li @key="item.Cow.Id">
+                        <CowCard Cow="item.Cow"
+                                 Action="primary?.Action"
+                                 Urgency="item.Urgency"
+                                 Anomaly="item.Anomaly"
+                                 DueLabel="@DueLabel(primary)"
+                                 Detail="@OtherMotives(item)"
+                                 Metrics="@Metrics(item.Cow)" />
+                    </li>
+                }
+            </ul>
+        }
+    }
+</section>
+
+@code {
+    private Farm? farm;
+    private RegieGrid? grid;
+    private string? error;
+    private RegieAction? filter;
+
+    /// <summary>Identifiant de la ferme visitée (ex. « F001 »).</summary>
+    [Parameter, EditorRequired]
+    public string FarmId { get; set; } = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        (farm, grid, error, filter) = (null, null, null, null);
+        try
+        {
+            await Seeder.EnsureSeededAsync();
+            farm = (await Repository.GetFarmsAsync()).FirstOrDefault(candidate => candidate.Id == FarmId);
+            IReadOnlyList<Cow> cows = farm is null ? [] : await Repository.GetCowsByFarmAsync(FarmId);
+            var today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
+            grid = DailyActions.Compute(cows, today, Thresholds);
+        }
+        catch (StorageUnavailableException exception)
+        {
+            error = exception.Message;
+        }
+    }
+
+    // Filtrage d'affichage uniquement : une vache apparaît sous chacun de ses motifs.
+    private IEnumerable<RegieItem> VisibleItems =>
+        grid!.Items.Where(item => filter is null || item.Motives.Any(motive => motive.Action == filter));
+
+    private IEnumerable<(RegieAction Action, int Count)> ActionCounts =>
+        grid!.Items.SelectMany(item => item.Motives.Select(motive => motive.Action).Distinct())
+            .GroupBy(action => action)
+            .OrderBy(group => group.Key)
+            .Select(group => (group.Key, group.Count()));
+
+    private string Pressed(RegieAction? action) => filter == action ? "true" : "false";
+
+    private static string ActionLabel(RegieAction action) => action switch
+    {
+        RegieAction.CalvingSoon => "Vêlage prévu",
+        RegieAction.PregnancyCheck => "DG",
+        RegieAction.DryOff => "Tarissement",
+        RegieAction.HighScc => "CCS élevé",
+        RegieAction.PostCalvingCheck => "Post-vêlage",
+        RegieAction.NotInseminated => "Vache vide",
+        _ => action.ToString(),
+    };
+
+    private static string? DueLabel(RegieMotive? motive) => motive switch
+    {
+        { Action: RegieAction.PregnancyCheck, Days: int days, IsOverdue: true } => $"IA J+{days} · DG en retard",
+        { Action: RegieAction.PregnancyCheck, Days: int days } => $"IA J+{days}",
+        { Action: RegieAction.DryOff or RegieAction.CalvingSoon, Days: int days } when days >= 0 => $"Vêlage J-{days}",
+        { Action: RegieAction.DryOff or RegieAction.CalvingSoon, Days: int days } => $"Vêlage dépassé de {-days} j",
+        { Action: RegieAction.PostCalvingCheck or RegieAction.NotInseminated, Days: int days } => $"Vêlage J+{days}",
+        _ => null,
+    };
+
+    private static string? OtherMotives(RegieItem item) =>
+        item.Motives.Count > 1 ? $"Aussi : {string.Join(", ", item.Motives.Skip(1).Select(motive => ActionLabel(motive.Action)))}." : null;
+
+    private static IReadOnlyList<CowCardMetric> Metrics(Cow cow) =>
+    [
+        new("Statut", cow.Status switch
+        {
+            ReproStatus.Open => "Vide",
+            ReproStatus.Bred => "Inséminée",
+            ReproStatus.Pregnant => "Gestante",
+            ReproStatus.Dry => "Tarie",
+            _ => cow.Status.ToString(),
+        }),
+        new("Dernier CCS", cow.LastSccThousands is int scc ? $"{scc} k cellules/mL" : "Aucun contrôle"),
+    ];
+}

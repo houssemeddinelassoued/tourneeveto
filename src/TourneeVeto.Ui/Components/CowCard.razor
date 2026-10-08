@@ -33,6 +33,10 @@
 
     <section class="cow-card__action" aria-labelledby="@ActionId">
         <h4 class="cow-card__action-title" id="@ActionId">@ActionTexts.Title</h4>
+        @if (Anomaly is not null && Action is not null)
+        {
+            <p class="cow-card__anomaly">Anomalie : @AnomalyLabel</p>
+        }
         @if (!string.IsNullOrWhiteSpace(Detail))
         {
             <p class="cow-card__detail">@Detail</p>
@@ -74,9 +78,13 @@
     [Parameter, EditorRequired]
     public Cow Cow { get; set; } = default!;
 
-    /// <summary>Action attendue, calculée par le domaine.</summary>
+    /// <summary>Action attendue (motif principal), calculée par le domaine ; <c>null</c> si la vache n'a qu'une anomalie.</summary>
     [Parameter, EditorRequired]
-    public RegieAction Action { get; set; }
+    public RegieAction? Action { get; set; }
+
+    /// <summary>Donnée à corriger, détectée par le domaine (date incohérente, IA manquante).</summary>
+    [Parameter]
+    public RegieAnomaly? Anomaly { get; set; }
 
     /// <summary>Niveau d'urgence, calculé par le domaine.</summary>
     [Parameter, EditorRequired]
@@ -130,14 +138,22 @@
         var rank => $"{rank}e lact.",
     };
 
+    private string? AnomalyLabel => Anomaly switch
+    {
+        RegieAnomaly.InconsistentDate => "Date incohérente",
+        RegieAnomaly.MissingInsemination => "Date d'IA manquante",
+        _ => null,
+    };
+
     private (string Title, string Button) ActionTexts => Action switch
     {
+        null => (AnomalyLabel ?? "Donnée à vérifier", "Noter une observation"),
         RegieAction.CalvingSoon => ("Vêlage prévu", "Valider le vêlage"),
         RegieAction.PregnancyCheck => ("Diagnostic de gestation", "Saisir le DG"),
         RegieAction.DryOff => ("Tarissement", "Protocole de tarissement"),
         RegieAction.HighScc => ("CCS élevé — suspicion de mammite", "Noter le CMT"),
         RegieAction.PostCalvingCheck => ("Examen post-vêlage", "Saisir l'examen"),
-        RegieAction.NotInseminated => ("Non inséminée", "Noter une observation"),
+        RegieAction.NotInseminated => ("Vache vide (non inséminée)", "Noter une observation"),
         _ => throw new ArgumentOutOfRangeException(nameof(Action), Action, "Action de régie inconnue."),
     };
 }

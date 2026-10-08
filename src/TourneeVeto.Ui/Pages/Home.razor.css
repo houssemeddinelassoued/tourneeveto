@@ -50,6 +50,13 @@
     padding: var(--space-md);
     border-radius: var(--radius-md);
     background: var(--color-surface-muted);
+    color: var(--color-text);
+    text-decoration: none;
+}
+
+.visit:focus-visible {
+    outline: var(--focus-ring-width) solid var(--color-focus);
+    outline-offset: var(--border-width-strong);
 }
 
 .farm {

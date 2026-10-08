@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using TourneeVeto.Domain.Regie;
 using TourneeVeto.Ui.Data;
 
 namespace TourneeVeto.Ui;
@@ -14,6 +15,7 @@ public static class ServiceCollectionExtensions
 
         // Un hôte ou un test peut fournir son propre TimeProvider avant cet appel.
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton(RegieThresholds.Default);
         services.AddScoped<IVisitRepository, IndexedDbVisitRepository>();
         services.AddScoped<DemoDataSeeder>();
         return services;

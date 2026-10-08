@@ -78,6 +78,32 @@ public class CowCardTests : BunitContext
     }
 
     [Fact]
+    public void Anomalie_seule_devient_le_titre_de_la_carte()
+    {
+        var cut = Render<CowCard>(parameters => parameters
+            .Add(p => p.Cow, DemoCow(lactation: 2))
+            .Add(p => p.Action, null)
+            .Add(p => p.Anomaly, RegieAnomaly.MissingInsemination)
+            .Add(p => p.Urgency, Urgency.Warning));
+
+        Assert.Equal("Date d'IA manquante", cut.Find("h4").TextContent);
+        Assert.Empty(cut.FindAll(".cow-card__anomaly"));
+    }
+
+    [Fact]
+    public void Anomalie_avec_un_motif_est_affichee_en_texte()
+    {
+        var cut = Render<CowCard>(parameters => parameters
+            .Add(p => p.Cow, DemoCow(lactation: 3))
+            .Add(p => p.Action, RegieAction.HighScc)
+            .Add(p => p.Anomaly, RegieAnomaly.InconsistentDate)
+            .Add(p => p.Urgency, Urgency.Urgent));
+
+        Assert.Equal("CCS élevé — suspicion de mammite", cut.Find("h4").TextContent);
+        Assert.Equal("Anomalie : Date incohérente", cut.Find(".cow-card__anomaly").TextContent);
+    }
+
+    [Fact]
     public void Indicateurs_sont_rendus_en_liste_de_definitions()
     {
         var cut = Render<CowCard>(parameters => parameters

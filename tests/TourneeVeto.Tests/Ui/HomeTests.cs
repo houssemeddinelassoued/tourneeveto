@@ -43,6 +43,7 @@ public class HomeTests : BunitContext, IAsyncLifetime
             data.Farms.Select(farm => farm.Name),
             cut.FindAll(".farm").Select(farm => farm.TextContent)));
         Assert.Equal("false", cut.Find("section").GetAttribute("aria-busy"));
+        Assert.Equal(data.Farms.Select(farm => $"regie/{farm.Id}"), cut.FindAll("a.visit").Select(link => link.GetAttribute("href")));
     }
 
     [Fact]

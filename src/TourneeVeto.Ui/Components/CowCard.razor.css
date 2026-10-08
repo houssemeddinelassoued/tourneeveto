@@ -149,6 +149,17 @@
     font: var(--font-body-lg);
 }
 
+.cow-card__anomaly {
+    justify-self: start;
+    margin: var(--space-xs) 0 0;
+    padding: var(--space-xs) var(--space-sm);
+    border: var(--border-width) solid var(--color-warning-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-warning-surface);
+    color: var(--color-on-warning-surface);
+    font: var(--font-label-md);
+}
+
 /* --- Indicateurs --- */
 
 .cow-card__metrics {
