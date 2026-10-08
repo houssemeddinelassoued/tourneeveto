@@ -39,22 +39,24 @@ Comment découper la solution pour que seul l'hôte change d'une plateforme à l
 
 ```text
 TourneeVeto.slnx
+global.json             SDK .NET 10.0.x (rollForward latestFeature)
+Directory.Build.props   Nullable, ImplicitUsings, TreatWarningsAsErrors pour tous les projets
 src/
   TourneeVeto.Domain/   Bibliothèque .NET : entités, règles de régie, score biosécurité, IVisitRepository
-  TourneeVeto.UI/       Razor Class Library : pages, composants, adaptateur IndexedDB
+  TourneeVeto.Ui/       Razor Class Library : pages, mise en page, composants, adaptateur IndexedDB
                         (C# + wwwroot/js/storage.js), données de démo et configuration JSON
-  TourneeVeto.Web/      Hôte Blazor WebAssembly autonome : Program.cs, App.razor (routeur),
+  TourneeVeto.Web/      Hôte Blazor WebAssembly autonome (PWA) : Program.cs, App.razor (routeur),
                         index.html, service worker, manifeste
 tests/
-  TourneeVeto.Domain.Tests/   xUnit + tests d'architecture
-  TourneeVeto.UI.Tests/       bUnit
-  TourneeVeto.E2E/            Playwright for .NET, sur la sortie de dotnet publish
+  TourneeVeto.Tests/    xUnit + bUnit : règles du Domain, composants de l'Ui, tests d'architecture
 ```
 
-Règles de dépendance : `Web → UI → Domain`. Le Domain ne dépend de rien. Les futurs `TourneeVeto.Wpf` et `TourneeVeto.Maui` (BlazorWebView) référenceront `TourneeVeto.UI`, exactement comme `TourneeVeto.Web`.
+Un seul projet de tests suffit pour le POC. Les tests Playwright for .NET (hors ligne, tablette, publication) iront dans un projet `tests/TourneeVeto.E2E` créé avec le premier test de parcours, car ils s'exécutent sur la sortie de `dotnet publish`.
 
-- Le routeur de l'hôte déclare l'assembly de l'UI (`AdditionalAssemblies`) : toutes les pages `@page` vivent dans `TourneeVeto.UI`.
-- Le module JS de stockage est servi comme ressource statique de la RCL (`_content/TourneeVeto.UI/js/storage.js`), chemin identique dans les WebView WPF et MAUI.
+Règles de dépendance : `Web → Ui → Domain` ; `Tests → Domain, Ui`. Le Domain ne dépend de rien. Les futurs `TourneeVeto.Wpf` et `TourneeVeto.Maui` (BlazorWebView) référenceront `TourneeVeto.Ui`, exactement comme `TourneeVeto.Web`.
+
+- Le routeur de l'hôte déclare l'assembly de l'Ui (`AdditionalAssemblies`) : toutes les pages `@page`, y compris `NotFound`, et la mise en page vivent dans `TourneeVeto.Ui`.
+- Le module JS de stockage est servi comme ressource statique de la RCL (`_content/TourneeVeto.Ui/js/storage.js`), chemin identique dans les WebView WPF et MAUI.
 - Ce qui n'existe que dans le navigateur (service worker, indicateur « prête hors ligne », manifeste) reste dans l'hôte Web. L'UI y accède par une interface (ex. `IOfflineStatus`) que chaque hôte implémente.
 
 ### Conséquences
@@ -73,7 +75,7 @@ Règles de dépendance : `Web → UI → Domain`. Le Domain ne dépend de rien. 
 
 ### Confirmation
 
-Tests d'architecture dans la CI (critère de l'epic 1, [mvp.md](../mvp.md)) :
+Tests d'architecture dans la CI (critère de l'epic 1, [mvp.md](../mvp.md)), dans `tests/TourneeVeto.Tests/ArchitectureTests.cs` :
 
 - `TourneeVeto.Domain` ne référence ni `Microsoft.AspNetCore.Components` ni `Microsoft.JSInterop` ;
 - `TourneeVeto.Web` ne contient aucun composant routable (`@page`).

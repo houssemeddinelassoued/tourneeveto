@@ -1,0 +1,143 @@
+@using TourneeVeto.Domain.Herd
+@using TourneeVeto.Domain.Regie
+
+@* Carte d'une vache dans la grille de régie (maquettes design/stitch/tablette/regie.png et web/regie.png).
+   L'action et l'urgence sont calculées par TourneeVeto.Domain : ce composant ne fait que les afficher. *@
+<article class="cow-card cow-card--@UrgencyModifier" aria-labelledby="@NameId">
+    <header class="cow-card__header">
+        <p class="cow-card__number">
+            <span class="cow-card__number-label">N°</span>
+            <span class="cow-card__number-value">@Cow.Id</span>
+        </p>
+
+        <div class="cow-card__identity">
+            <h3 class="cow-card__name" id="@NameId">@Cow.Name</h3>
+            <span class="cow-card__lactation">@LactationLabel</span>
+        </div>
+
+        <p class="cow-card__status">
+            @if (Urgency is Urgency.Urgent or Urgency.Warning)
+            {
+                <span class="cow-card__urgency">@UrgencyLabel</span>
+            }
+            else
+            {
+                <span class="cow-card__sr-only">@UrgencyLabel</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(DueLabel))
+            {
+                <span class="cow-card__due">@DueLabel</span>
+            }
+        </p>
+    </header>
+
+    <section class="cow-card__action" aria-labelledby="@ActionId">
+        <h4 class="cow-card__action-title" id="@ActionId">@ActionTexts.Title</h4>
+        @if (!string.IsNullOrWhiteSpace(Detail))
+        {
+            <p class="cow-card__detail">@Detail</p>
+        }
+    </section>
+
+    @if (Metrics is { Count: > 0 })
+    {
+        <dl class="cow-card__metrics">
+            @foreach (var metric in Metrics)
+            {
+                <div class="cow-card__metric">
+                    <dt>@metric.Label</dt>
+                    <dd>@metric.Value</dd>
+                </div>
+            }
+        </dl>
+    }
+
+    <footer class="cow-card__actions">
+        <button type="button" class="cow-card__primary" @onclick="OnAction">
+            <svg class="cow-card__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+            @ActionTexts.Button
+        </button>
+        <button type="button" class="cow-card__history" @onclick="OnHistory" aria-label="@($"Historique de {Cow.Name}")">
+            <svg class="cow-card__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
+                <path d="M3.5 4v4.5H8" />
+                <path d="M12 7.5V12l3 2" />
+            </svg>
+        </button>
+    </footer>
+</article>
+
+@code {
+    /// <summary>Vache affichée.</summary>
+    [Parameter, EditorRequired]
+    public Cow Cow { get; set; } = default!;
+
+    /// <summary>Action attendue, calculée par le domaine.</summary>
+    [Parameter, EditorRequired]
+    public RegieAction Action { get; set; }
+
+    /// <summary>Niveau d'urgence, calculé par le domaine.</summary>
+    [Parameter, EditorRequired]
+    public Urgency Urgency { get; set; }
+
+    /// <summary>Échéance déjà formatée (ex. « J-2 », « IA J+35 »).</summary>
+    [Parameter]
+    public string? DueLabel { get; set; }
+
+    /// <summary>Consigne ou contexte de l'action.</summary>
+    [Parameter]
+    public string? Detail { get; set; }
+
+    /// <summary>Indicateurs déjà formatés (ex. dernier CCS, jours de gestation).</summary>
+    [Parameter]
+    public IReadOnlyList<CowCardMetric>? Metrics { get; set; }
+
+    /// <summary>Déclenché par le bouton d'action principal.</summary>
+    [Parameter]
+    public EventCallback OnAction { get; set; }
+
+    /// <summary>Déclenché par le bouton Historique.</summary>
+    [Parameter]
+    public EventCallback OnHistory { get; set; }
+
+    private string NameId => $"cow-card-{Cow.Id}-name";
+
+    private string ActionId => $"cow-card-{Cow.Id}-action";
+
+    private string UrgencyModifier => Urgency switch
+    {
+        Urgency.Urgent => "urgent",
+        Urgency.Warning => "warning",
+        Urgency.Ok => "ok",
+        _ => "info",
+    };
+
+    // L'urgence est aussi donnée en texte : la couleur ne doit jamais être le seul indice (WCAG 1.4.1).
+    private string UrgencyLabel => Urgency switch
+    {
+        Urgency.Urgent => "Urgent",
+        Urgency.Warning => "À surveiller",
+        Urgency.Ok => "Normal",
+        _ => "À faire",
+    };
+
+    private string LactationLabel => Cow.Lactation switch
+    {
+        0 => "Génisse",
+        1 => "1re lact.",
+        var rank => $"{rank}e lact.",
+    };
+
+    private (string Title, string Button) ActionTexts => Action switch
+    {
+        RegieAction.CalvingSoon => ("Vêlage prévu", "Valider le vêlage"),
+        RegieAction.PregnancyCheck => ("Diagnostic de gestation", "Saisir le DG"),
+        RegieAction.DryOff => ("Tarissement", "Protocole de tarissement"),
+        RegieAction.HighScc => ("CCS élevé — suspicion de mammite", "Noter le CMT"),
+        RegieAction.PostCalvingCheck => ("Examen post-vêlage", "Saisir l'examen"),
+        RegieAction.NotInseminated => ("Non inséminée", "Noter une observation"),
+        _ => throw new ArgumentOutOfRangeException(nameof(Action), Action, "Action de régie inconnue."),
+    };
+}

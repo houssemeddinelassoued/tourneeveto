@@ -1,0 +1,19 @@
+# .copilotignore (syntaxe .gitignore, pas de négation « ! »)
+# 1. Secrets, certificats et configuration locale
+.env
+.env.*
+*.pfx
+*.snk
+appsettings.*.local.json
+
+# 2. Données réelles d'élevages et de producteurs (exports de test)
+data/reel/
+exports/
+**/*-reel.csv
+
+# 3. Fichiers volumineux sans valeur pour l'IA
+**/wwwroot/lib/**
+*.min.js
+*.min.css
+*.map
+design/stitch/**/*.html

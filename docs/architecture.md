@@ -40,8 +40,8 @@ flowchart TB
     subgraph tablette["Navigateur de la tablette — fonctionne hors ligne"]
         subgraph app["Application TournéeVéto [Blazor WebAssembly autonome, .NET 10]"]
             host["TourneeVeto.Web<br/>[Hôte Blazor WebAssembly]<br/>Démarrage, routeur, injection de dépendances,<br/>service worker, manifeste"]
-            ui["TourneeVeto.UI<br/>[Razor Class Library]<br/>Pages, composants, données de démo JSON"]
-            adapter["Stockage IndexedDB<br/>[C# + module JS, dans TourneeVeto.UI]<br/>Implémente IVisitRepository"]
+            ui["TourneeVeto.Ui<br/>[Razor Class Library]<br/>Pages, composants, données de démo JSON"]
+            adapter["Stockage IndexedDB<br/>[C# + module JS, dans TourneeVeto.Ui]<br/>Implémente IVisitRepository"]
             domain["TourneeVeto.Domain<br/>[Bibliothèque .NET]<br/>Règles de régie, score biosécurité,<br/>IVisitRepository"]
         end
         idb[("IndexedDB<br/>[Base du navigateur]<br/>Fermes, vaches, visites, saisies, photos")]
@@ -83,7 +83,7 @@ Au sens strict, l'application Blazor WebAssembly est un seul conteneur. Ses proj
 ## Rôle de chaque conteneur
 
 - **TourneeVeto.Web** : hôte propre au navigateur (routeur, injection de dépendances, service worker, manifeste). C'est le seul projet remplacé par un hôte WPF ou MAUI.
-- **TourneeVeto.UI** : pages, composants et données de démo JSON, partagés tels quels avec les futurs hôtes Blazor Hybrid.
+- **TourneeVeto.Ui** : pages, composants et données de démo JSON, partagés tels quels avec les futurs hôtes Blazor Hybrid.
 - **Stockage IndexedDB** : implémentation de `IVisitRepository` par un module JS appelé par interop. Il vit dans la Razor Class Library, car IndexedDB existe aussi dans WebView2 et dans les WebView de MAUI.
 - **TourneeVeto.Domain** : règles métier pures et interface `IVisitRepository`, sans dépendance à l'interface ni au navigateur ; testé par xUnit.
 - **IndexedDB** : seule source de vérité des données sur l'appareil, photos comprises (en `Blob`). Rien n'est copié ailleurs.
