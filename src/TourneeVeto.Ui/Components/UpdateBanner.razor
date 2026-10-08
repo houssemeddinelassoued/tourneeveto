@@ -1,0 +1,35 @@
+@using TourneeVeto.Ui.Platform
+@implements IDisposable
+@inject AppStatusService AppStatus
+
+@* Story 3.3 : la nouvelle version n'est appliquée qu'après confirmation ; les saisies sont déjà dans IndexedDB. *@
+@if (AppStatus.Current.UpdateAvailable)
+{
+    <div class="root" role="status">
+        <p class="message">Nouvelle version disponible. Vos saisies sont enregistrées sur l'appareil.</p>
+        <button type="button" class="reload" disabled="@applying" @onclick="ApplyAsync">
+            @(applying ? "Rechargement…" : "Recharger")
+        </button>
+    </div>
+}
+
+@code {
+    private bool applying;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppStatus.Changed += OnStatusChanged;
+        await AppStatus.StartAsync();
+    }
+
+    private async Task ApplyAsync()
+    {
+        applying = true;
+        // Si aucune version n'attend plus (déjà appliquée ailleurs), le bouton redevient utilisable.
+        applying = await AppStatus.ApplyUpdateAsync();
+    }
+
+    private void OnStatusChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => AppStatus.Changed -= OnStatusChanged;
+}

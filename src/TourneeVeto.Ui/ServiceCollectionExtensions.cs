@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using TourneeVeto.Domain.Regie;
 using TourneeVeto.Ui.Data;
+using TourneeVeto.Ui.Platform;
 
 namespace TourneeVeto.Ui;
 
@@ -18,6 +19,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton(RegieThresholds.Default);
         services.AddScoped<IVisitRepository, IndexedDbVisitRepository>();
         services.AddScoped<DemoDataSeeder>();
+        services.AddScoped<AppStatusService>();
         return services;
     }
 }
