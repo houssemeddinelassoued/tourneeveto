@@ -1,0 +1,72 @@
+/* AppNav — tablette d'abord (768 px), puis téléphone (< 768 px) et poste (≥ 1024 px).
+   Couleurs, espacements et rayons : uniquement les variables de tokens.css.
+   NavLink est un composant enfant : ses liens sont stylés via ::deep. */
+
+.items {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.items li {
+    flex: 1;
+}
+
+.root ::deep .item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    min-block-size: var(--touch-target-primary);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+    font: var(--font-label-md);
+    letter-spacing: var(--letter-spacing-label-md);
+    text-align: center;
+    text-decoration: none;
+}
+
+.root ::deep .item.active {
+    background: var(--color-info-surface);
+    color: var(--color-on-info-surface);
+}
+
+.root ::deep .item:focus-visible {
+    outline: var(--focus-ring-width) solid var(--color-focus);
+    outline-offset: calc(var(--border-width-strong) * -1);
+}
+
+.root ::deep .icon {
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+@media (max-width: 767.98px) {
+    .root ::deep .item {
+        font: var(--font-label-sm);
+    }
+}
+
+@media (min-width: 1024px) {
+    .items {
+        flex-direction: column;
+        gap: var(--space-xs);
+    }
+
+    .root ::deep .item {
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: var(--space-md);
+        padding: var(--space-sm) var(--space-md);
+        font: var(--font-label-lg);
+        text-align: start;
+    }
+}

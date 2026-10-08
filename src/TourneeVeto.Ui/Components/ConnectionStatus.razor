@@ -1,0 +1,48 @@
+@using TourneeVeto.Ui.Platform
+@implements IDisposable
+@inject AppStatusService AppStatus
+
+@* Stories 3.2 et 3.3 : état de connexion et disponibilité hors ligne, en texte (jamais par la seule couleur). *@
+<p class="root root--@Tone" role="status">
+    <span class="dot" aria-hidden="true"></span>
+    <span class="text">
+        <span class="label">@Label</span>
+        <span class="detail">@Detail</span>
+    </span>
+</p>
+
+@code {
+    private AppStatus Current => AppStatus.Current;
+
+    private string Tone => (Current.Online, Current.OfflineReady) switch
+    {
+        (_, true) => "ok",
+        (true, false) => "warning",
+        (false, false) => "urgent",
+    };
+
+    private string Label => (Current.Online, Current.OfflineReady) switch
+    {
+        (true, true) => "En ligne · prêt hors ligne",
+        (false, true) => "Hors ligne · prêt",
+        (true, false) => "En ligne · mise en cache…",
+        (false, false) => "Hors ligne · non disponible",
+    };
+
+    private string Detail => (Current.Online, Current.OfflineReady) switch
+    {
+        (_, true) => "Tournée et troupeaux enregistrés sur l'appareil.",
+        (true, false) => "Gardez la connexion jusqu'à la fin du téléchargement.",
+        (false, false) => "Reconnectez-vous pour terminer la mise en cache.",
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppStatus.Changed += OnStatusChanged;
+        await AppStatus.StartAsync();
+    }
+
+    private void OnStatusChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => AppStatus.Changed -= OnStatusChanged;
+}

@@ -1,3 +1,4 @@
+@page "/regie"
 @page "/regie/{FarmId}"
 @using TourneeVeto.Domain.Herd
 @using TourneeVeto.Domain.Regie
@@ -31,6 +32,16 @@
     @if (error is not null)
     {
         <p class="error" role="alert">@error</p>
+    }
+    else if (string.IsNullOrEmpty(FarmId) && choices is not null)
+    {
+        <p class="status">Choisissez la ferme de la tournée du jour :</p>
+        <ul class="choices" role="list">
+            @foreach (var choice in choices)
+            {
+                <li><a class="choice" href="@($"regie/{choice.Id}")">@choice.Name · @choice.Municipality</a></li>
+            }
+        </ul>
     }
     else if (grid is null)
     {
@@ -89,18 +100,27 @@
     private RegieGrid? grid;
     private string? error;
     private RegieAction? filter;
+    private IReadOnlyList<Farm>? choices;
 
-    /// <summary>Identifiant de la ferme visitée (ex. « F001 »).</summary>
-    [Parameter, EditorRequired]
-    public string FarmId { get; set; } = string.Empty;
+    /// <summary>Identifiant de la ferme visitée (ex. « F001 ») ; vide sur /regie, qui propose les fermes du jour.</summary>
+    [Parameter]
+    public string? FarmId { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {
-        (farm, grid, error, filter) = (null, null, null, null);
+        (farm, grid, error, filter, choices) = (null, null, null, null, null);
         try
         {
             await Seeder.EnsureSeededAsync();
-            farm = (await Repository.GetFarmsAsync()).FirstOrDefault(candidate => candidate.Id == FarmId);
+            var farms = await Repository.GetFarmsAsync();
+            if (string.IsNullOrEmpty(FarmId))
+            {
+                var todayVisits = await Repository.GetVisitsByDateAsync(DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime));
+                choices = [.. farms.Where(candidate => todayVisits.Any(visit => visit.FarmId == candidate.Id)).OrderBy(candidate => candidate.Id, StringComparer.Ordinal)];
+                return;
+            }
+
+            farm = farms.FirstOrDefault(candidate => candidate.Id == FarmId);
             IReadOnlyList<Cow> cows = farm is null ? [] : await Repository.GetCowsByFarmAsync(FarmId);
             var today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
             grid = DailyActions.Compute(cows, today, Thresholds);

@@ -10,6 +10,7 @@
     --cow-card-panel-bg: var(--color-surface-muted);
     --cow-card-panel-title: var(--color-info);
 
+    container-type: inline-size;
     display: grid;
     gap: var(--space-md);
     padding: var(--space-lg);
@@ -321,5 +322,22 @@
 
     .cow-card__history {
         min-inline-size: var(--touch-target);
+    }
+}
+
+/* --- Carte étroite (ex. deux colonnes sur poste) : les badges passent sous le nom pour ne jamais le couper --- */
+
+@container (max-width: 34rem) {
+    .cow-card__header {
+        grid-template-columns: auto 1fr;
+    }
+
+    .cow-card__status {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+    }
+
+    .cow-card__name {
+        overflow-wrap: normal;
     }
 }

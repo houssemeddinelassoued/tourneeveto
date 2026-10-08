@@ -1,0 +1,75 @@
+/* ConnectionStatus — tablette d'abord (768 px), puis téléphone (< 768 px) et poste (≥ 1024 px).
+   Couleurs, espacements et rayons : uniquement les variables de tokens.css. */
+
+.root {
+    --status-accent: var(--color-ok);
+    --status-background: var(--color-surface-muted);
+    --status-text: var(--color-ok);
+
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--radius-full);
+    background: var(--status-background);
+    color: var(--status-text);
+}
+
+.root--warning {
+    --status-accent: var(--color-warning);
+    --status-background: var(--color-warning-surface);
+    --status-text: var(--color-on-warning-surface);
+}
+
+.root--urgent {
+    --status-accent: var(--color-urgent);
+    --status-background: var(--color-urgent-surface);
+    --status-text: var(--color-on-urgent-surface);
+}
+
+.dot {
+    flex: none;
+    inline-size: 0.75rem;
+    block-size: 0.75rem;
+    border-radius: var(--radius-full);
+    background: var(--status-accent);
+}
+
+.text {
+    display: grid;
+}
+
+.label {
+    font: var(--font-label-md);
+    letter-spacing: var(--letter-spacing-label-md);
+}
+
+/* Le détail n'est affiché que dans la barre latérale du poste. */
+.detail {
+    display: none;
+    color: var(--color-text-muted);
+    font: var(--font-body-sm);
+}
+
+@media (max-width: 767.98px) {
+    .root {
+        padding: var(--space-xs) var(--space-sm);
+    }
+}
+
+@media (min-width: 1024px) {
+    .root {
+        align-items: flex-start;
+        padding: var(--space-md);
+        border-radius: var(--radius-lg);
+    }
+
+    .dot {
+        margin-block-start: var(--space-xs);
+    }
+
+    .detail {
+        display: block;
+    }
+}

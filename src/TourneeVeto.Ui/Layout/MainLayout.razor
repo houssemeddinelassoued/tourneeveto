@@ -1,17 +1,39 @@
 @inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+@inject NavigationManager Navigation
+
+@* Structure des maquettes Stitch : barre du haut et onglets en bas (tablette, téléphone), barre latérale (poste ≥ 1024 px). *@
+<div class="shell">
+    <a class="skip" href="@SkipTarget">Aller au contenu</a>
+
+    <div class="banner">
+        <UpdateBanner />
     </div>
 
-    <main>
-        <TourneeVeto.Ui.Components.UpdateBanner />
-        <div class="top-row px-4">
-            <span>Données fictives — règles simplifiées</span>
-        </div>
+    <header class="header">
+        <a class="brand" href="">
+            <span class="logo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M12 6v12M6 12h12" /></svg>
+            </span>
+            <span class="brand-text">
+                <span class="brand-name">TournéeVéto</span>
+                <span class="brand-tag">Données fictives · règles simplifiées</span>
+            </span>
+        </a>
+        <ConnectionStatus />
+    </header>
 
-        <article class="content px-4">
+    <nav class="nav" aria-label="Navigation principale">
+        <AppNav />
+    </nav>
+
+    <main class="main" id="contenu" tabindex="-1">
+        <div class="content">
             @Body
-        </article>
+        </div>
     </main>
 </div>
+
+@code {
+    // Lien vers l'ancre de la page courante : un simple « #contenu » serait résolu par rapport au base href.
+    private string SkipTarget => $"{Navigation.Uri.Split('#')[0]}#contenu";
+}

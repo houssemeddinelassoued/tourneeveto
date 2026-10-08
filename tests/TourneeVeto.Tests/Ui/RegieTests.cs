@@ -47,6 +47,19 @@ public class RegieTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
+    public void Sans_ferme_propose_les_fermes_de_la_tournee_du_jour()
+    {
+        module.Setup<IReadOnlyList<Visit>>("getVisitsByDate", Today).SetResult(data.Visits);
+
+        var cut = Render<Regie>();
+
+        cut.WaitForAssertion(() => Assert.Equal(
+            data.Farms.Select(farm => $"regie/{farm.Id}"),
+            cut.FindAll("a.choice").Select(link => link.GetAttribute("href"))));
+        Assert.Empty(module.Invocations["getCowsByFarm"]);
+    }
+
+    [Fact]
     public void Filtre_DG_n_affiche_que_les_vaches_a_diagnostiquer()
     {
         module.Setup<IReadOnlyList<Cow>>("getCowsByFarm", "F001").SetResult(data.Cows);

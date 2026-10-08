@@ -1,0 +1,21 @@
+@* Navigation principale (maquettes Stitch) : onglets en bas sur tablette et téléphone, menu vertical sur poste. *@
+<div class="root">
+    <ul class="items" role="list">
+        <li>
+            <NavLink class="item" href="" Match="NavLinkMatch.All">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4" />
+                </svg>
+                <span class="label">Tournée du jour</span>
+            </NavLink>
+        </li>
+        <li>
+            <NavLink class="item" href="regie" Match="NavLinkMatch.Prefix">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M4 7l2 2 3-3M4 15l2 2 3-3M12 8h8M12 16h8" />
+                </svg>
+                <span class="label">Grille de régie</span>
+            </NavLink>
+        </li>
+    </ul>
+</div>

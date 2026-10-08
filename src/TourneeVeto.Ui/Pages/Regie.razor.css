@@ -59,6 +59,34 @@
     color: var(--color-on-warning-surface);
 }
 
+/* --- Choix de la ferme (/regie) --- */
+
+.choices {
+    display: grid;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.choice {
+    display: flex;
+    align-items: center;
+    min-block-size: var(--touch-target-primary);
+    padding: var(--space-sm) var(--space-lg);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: var(--font-label-lg);
+    text-decoration: none;
+}
+
+.choice:focus-visible {
+    outline: var(--focus-ring-width) solid var(--color-focus);
+    outline-offset: var(--border-width-strong);
+}
+
 /* --- Filtres par motif --- */
 
 .filters {
