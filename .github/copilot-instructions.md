@@ -10,10 +10,15 @@ SDK figé par global.json (10.0.x) ; Nullable, ImplicitUsings et TreatWarningsAs
 
 ## Commandes
 dotnet build · dotnet test · dotnet format --verify-no-changes · dotnet publish src/TourneeVeto.Web -c Release
-Ne lance jamais dotnet run ni dotnet watch : ils ne rendent pas la main (l'humain lance l'application).
+Ne lance jamais dotnet run ni dotnet watch sur l'application : ils ne rendent pas la main (l'humain lance l'application).
+Seule exception : les scripts de vérification des skills (dotnet run .github/skills/<skill>/check.cs -- <args>), qui se terminent seuls.
+
+## Skills
+create-component (.github/skills/create-component, version Claude dans .claude/skills) : composant ou page Razor + CSS isolé + test bUnit à partir des gabarits, vérifiés par check.cs.
+indexeddb-interop (.github/skills/indexeddb-interop, version Claude dans .claude/skills) : accès à IndexedDB (module JS isolé + IVisitRepository), exemples qui fonctionnent.
 
 ## Structure (ADR 0002)
-src/TourneeVeto.Domain/  règles métier pures, interface IVisitRepository (aucune dépendance à Blazor, au JS ni au navigateur)
+src/TourneeVeto.Domain/  règles métier pures, sans accès au stockage (aucune dépendance à Blazor, au JS ni au navigateur)
 src/TourneeVeto.Ui/      Razor Class Library : pages, mise en page, composants, accès IndexedDB (Data/, wwwroot/js/)
 src/TourneeVeto.Web/     hôte Blazor WebAssembly : Program.cs, App.razor, index.html, service worker ; aucune page @page
 tests/TourneeVeto.Tests/ xUnit (domaine, architecture) + bUnit (composants) · tests/TourneeVeto.E2E/ Playwright (à créer avec le premier test de parcours)
@@ -30,7 +35,7 @@ Dépendances : Web → Ui → Domain ; Tests → Domain, Ui. Vérifiées par tes
 - Dates : DateOnly ; « aujourd'hui » vient d'un TimeProvider injecté côté Ui/Web et est passé au domaine en paramètre DateOnly ; jamais de DateTime.Now ni DateTime.Today.
 - Données fictives uniquement (DemoData) ; règles métier simplifiées, documentées dans PRODUCT.md.
 - Aucune logique métier dans un .razor : appeler TourneeVeto.Domain.
-- Stockage : IndexedDB derrière IVisitRepository, implémenté dans TourneeVeto.Ui ; photos en Blob (ADR 0001).
+- Stockage : IndexedDB derrière IVisitRepository (TourneeVeto.Ui/Data), module visitStore.js ; photos en Blob (ADR 0001, skill indexeddb-interop).
 - JavaScript uniquement dans src/TourneeVeto.Ui/wwwroot/js/, chargé en module isolé (IJSObjectReference).
 - index.html garde <base href="/" /> : la réécriture en /tourneeveto/, 404.html et .nojekyll sont faits à la publication (ADR 0003).
 - Textes d'interface en français.

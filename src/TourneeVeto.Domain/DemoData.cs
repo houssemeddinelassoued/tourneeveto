@@ -3,8 +3,8 @@ using TourneeVeto.Domain.Visits;
 
 namespace TourneeVeto.Domain;
 
-/// <summary>Jeu de données de démonstration : élevages et vaches fictifs.</summary>
-public sealed record DemoDataSet(IReadOnlyList<Farm> Farms, IReadOnlyList<Cow> Cows);
+/// <summary>Jeu de données de démonstration : élevages, vaches et visites du jour fictifs.</summary>
+public sealed record DemoDataSet(IReadOnlyList<Farm> Farms, IReadOnlyList<Cow> Cows, IReadOnlyList<Visit> Visits);
 
 /// <summary>
 /// Génère un jeu de données entièrement fictif pour la démonstration du POC.
@@ -19,6 +19,7 @@ public static class DemoData
     public const int DryOffsDue = 2;
     public const int HighSccCows = 4;
     public const int Heifers = 5;
+    public const int VisitsToday = 3;
 
     // Répartition des autres vaches, qui ne déclenchent aucune des actions ci-dessus.
     private const int MidPregnancyCows = 22;
@@ -29,11 +30,11 @@ public static class DemoData
     private const int GestationDays = 280;
     private const int HighSccThresholdThousands = 200;
 
-    private static readonly (string Id, string Name, string Municipality, int CowCount)[] FarmTemplates =
+    private static readonly (string Id, string Name, string Municipality, int CowCount, string VisitReason)[] FarmTemplates =
     [
-        ("F001", "Ferme du Rang Fictif", "Saint-Exemple-des-Prés", 25),
-        ("F002", "Ferme Laitière Démo", "Val-Démonstration", 20),
-        ("F003", "Ferme de l'Érable Imaginaire", "Lac-Imaginaire", 15),
+        ("F001", "Ferme du Rang Fictif", "Saint-Exemple-des-Prés", 25, "Suivi de reproduction"),
+        ("F002", "Ferme Laitière Démo", "Val-Démonstration", 20, "Suivi de reproduction et biosécurité"),
+        ("F003", "Ferme de l'Érable Imaginaire", "Lac-Imaginaire", 15, "Contrôle de la qualité du lait"),
     ];
 
     private static readonly string[] CowNames =
@@ -48,7 +49,9 @@ public static class DemoData
         "Vanille", "Violette",
     ];
 
-    /// <summary>Génère 3 élevages et 60 vaches fictifs, avec des dates relatives à <paramref name="today"/>.</summary>
+    /// <summary>
+    /// Génère 3 élevages, 60 vaches et la tournée du jour (une visite par élevage), avec des dates relatives à <paramref name="today"/>.
+    /// </summary>
     /// <param name="today">Date de référence de la démo (en général, la date du jour).</param>
     /// <param name="seed">Graine du générateur aléatoire.</param>
     public static DemoDataSet Generate(DateOnly today, int seed)
@@ -95,7 +98,19 @@ public static class DemoData
             }
         }
 
-        return new DemoDataSet(farms, cows);
+        // Générées après les vaches : ajouter les visites n'a pas changé le troupeau produit pour une graine donnée.
+        var visits = FarmTemplates
+            .Select(template => new Visit(NextGuid(random), template.Id, today, template.VisitReason, Notes: string.Empty, PhotoIds: []))
+            .ToList();
+
+        return new DemoDataSet(farms, cows, visits);
+    }
+
+    private static Guid NextGuid(Random random)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        random.NextBytes(bytes);
+        return new Guid(bytes);
     }
 
     private static void AddMany(List<CowDraft> drafts, int count, Func<int, CowDraft> create)

@@ -1,7 +1,64 @@
 @page "/"
+@using TourneeVeto.Domain.Visits
+@using TourneeVeto.Ui.Data
+@inject DemoDataSeeder Seeder
+@inject IVisitRepository Repository
+@inject TimeProvider TimeProvider
 
 <PageTitle>TournéeVéto</PageTitle>
 
-<h1>TournéeVéto</h1>
+<h1 class="title">TournéeVéto</h1>
+<p class="notice">Preuve de concept — données fictives, règles métier simplifiées.</p>
 
-<p>Preuve de concept — données fictives, règles métier simplifiées.</p>
+<section class="today" aria-labelledby="today-title" aria-busy="@(visits is null && error is null ? "true" : "false")">
+    <h2 class="subtitle" id="today-title">Tournée du jour</h2>
+
+    @if (error is not null)
+    {
+        <p class="error" role="alert">@error</p>
+    }
+    else if (visits is null)
+    {
+        <p class="status">Chargement des données…</p>
+    }
+    else if (visits.Count == 0)
+    {
+        <p class="status">Aucune visite prévue aujourd'hui.</p>
+    }
+    else
+    {
+        <ol class="visits" role="list">
+            @foreach (var visit in visits)
+            {
+                <li class="visit">
+                    <span class="farm">@FarmName(visit.FarmId)</span>
+                    <span class="reason">@visit.Reason</span>
+                </li>
+            }
+        </ol>
+    }
+</section>
+
+@code {
+    private IReadOnlyList<Visit>? visits;
+    private Dictionary<string, Farm> farms = [];
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Les données viennent du stockage local, alimenté au premier lancement par le jeu de démonstration.
+            await Seeder.EnsureSeededAsync();
+            var today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
+            farms = (await Repository.GetFarmsAsync()).ToDictionary(farm => farm.Id);
+            visits = [.. (await Repository.GetVisitsByDateAsync(today)).OrderBy(visit => visit.FarmId, StringComparer.Ordinal)];
+        }
+        catch (StorageUnavailableException exception)
+        {
+            error = exception.Message;
+        }
+    }
+
+    private string FarmName(string farmId) => farms.TryGetValue(farmId, out var farm) ? farm.Name : "Ferme introuvable";
+}

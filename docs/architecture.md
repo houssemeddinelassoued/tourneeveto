@@ -41,8 +41,8 @@ flowchart TB
         subgraph app["Application TournéeVéto [Blazor WebAssembly autonome, .NET 10]"]
             host["TourneeVeto.Web<br/>[Hôte Blazor WebAssembly]<br/>Démarrage, routeur, injection de dépendances,<br/>service worker, manifeste"]
             ui["TourneeVeto.Ui<br/>[Razor Class Library]<br/>Pages, composants, données de démo JSON"]
-            adapter["Stockage IndexedDB<br/>[C# + module JS, dans TourneeVeto.Ui]<br/>Implémente IVisitRepository"]
-            domain["TourneeVeto.Domain<br/>[Bibliothèque .NET]<br/>Règles de régie, score biosécurité,<br/>IVisitRepository"]
+            adapter["Stockage IndexedDB<br/>[TourneeVeto.Ui/Data + visitStore.js]<br/>IVisitRepository, IndexedDbVisitRepository"]
+            domain["TourneeVeto.Domain<br/>[Bibliothèque .NET]<br/>Règles de régie, score biosécurité<br/>(aucun accès au stockage)"]
         end
         idb[("IndexedDB<br/>[Base du navigateur]<br/>Fermes, vaches, visites, saisies, photos")]
         sw["Service worker<br/>[JavaScript]<br/>Mise en cache, fonctionnement hors ligne,<br/>détection des mises à jour"]
@@ -59,7 +59,7 @@ flowchart TB
     vet -->|"Utilise (tactile)"| ui
     host -->|"Héberge et route"| ui
     ui -->|"Appelle les services métier"| domain
-    adapter -->|"Implémente IVisitRepository"| domain
+    ui -->|"Lit et écrit via IVisitRepository"| adapter
     adapter -->|"Lit et écrit (JS interop)"| idb
     host -->|"Requêtes de fichiers"| sw
     sw -->|"Sert depuis le cache"| cache
@@ -84,8 +84,8 @@ Au sens strict, l'application Blazor WebAssembly est un seul conteneur. Ses proj
 
 - **TourneeVeto.Web** : hôte propre au navigateur (routeur, injection de dépendances, service worker, manifeste). C'est le seul projet remplacé par un hôte WPF ou MAUI.
 - **TourneeVeto.Ui** : pages, composants et données de démo JSON, partagés tels quels avec les futurs hôtes Blazor Hybrid.
-- **Stockage IndexedDB** : implémentation de `IVisitRepository` par un module JS appelé par interop. Il vit dans la Razor Class Library, car IndexedDB existe aussi dans WebView2 et dans les WebView de MAUI.
-- **TourneeVeto.Domain** : règles métier pures et interface `IVisitRepository`, sans dépendance à l'interface ni au navigateur ; testé par xUnit.
+- **Stockage IndexedDB** : interface `IVisitRepository` et implémentation `IndexedDbVisitRepository` (TourneeVeto.Ui/Data), via le module isolé `visitStore.js` (skill indexeddb-interop). Il vit dans la Razor Class Library, car IndexedDB existe aussi dans WebView2 et dans les WebView de MAUI.
+- **TourneeVeto.Domain** : règles métier pures, sans accès au stockage ni dépendance à l'interface ni au navigateur ; testé par xUnit.
 - **IndexedDB** : seule source de vérité des données sur l'appareil, photos comprises (en `Blob`). Rien n'est copié ailleurs.
 - **Service worker** : met l'application en cache après le 1er chargement, la sert hors ligne et signale les nouvelles versions sans les appliquer d'office.
 - **Cache Storage** : copie locale des fichiers `_framework`, des ressources `_content` et des JSON (données de démo, seuils, questionnaire de biosécurité).

@@ -4,7 +4,7 @@ using TourneeVeto.Domain.Herd;
 using TourneeVeto.Domain.Regie;
 using TourneeVeto.Ui.Components;
 
-namespace TourneeVeto.Tests;
+namespace TourneeVeto.Tests.Ui;
 
 public class CowCardTests : BunitContext
 {

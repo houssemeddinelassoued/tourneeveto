@@ -38,19 +38,21 @@ Volumes à stocker :
 | **Requêtes (index, tri par date)** | Aucune : clé-valeur, filtres et tris en C# après lecture complète. | Index par object store, requêtes par plage (`IDBKeyRange`), parcours triés par date. Pas de jointures : les filtres combinés se font en C#. | SQL complet et LINQ : index, jointures, tri, pagination. |
 | **Poids ajouté au téléchargement initial** | Quelques dizaines de Ko. | Quelques Ko (module maison). | Plusieurs Mo : EF Core, fournisseur SQLite et binaire `e_sqlite3` en WebAssembly (*à mesurer*, ordre de grandeur 2 à 5 Mo compressés). Workload `wasm-tools` obligatoire en CI. |
 | **Maturité** | API standard ; paquet communautaire répandu et stable. | API standard W3C, prise en charge par tous les navigateurs cibles. La maturité du module dépend de notre code, à garder minimal. | Non pris en charge officiellement par Microsoft en WebAssembly ; paquets peu adoptés, un seul mainteneur ; avertissements de trimming. |
-| **Facilité de test** | Très simple : faux `ILocalStorageService`. | Domain testé avec un faux `IVisitRepository` en mémoire (xUnit) ; module JS testé avec Playwright, déjà prévu. | Logique testable avec SQLite en mémoire (xUnit) ; la persistance WebAssembly ne se teste que dans un navigateur. |
+| **Facilité de test** | Très simple : faux `ILocalStorageService`. | Domain pur testé directement (xUnit) ; repository testé avec bUnit (`JSInterop.SetupModule`, sans vraie base) ; module JS testé avec Playwright, déjà prévu. | Logique testable avec SQLite en mémoire (xUnit) ; la persistance WebAssembly ne se teste que dans un navigateur. |
 | **WebView (WPF, MAUI)** | Disponible, mais avec le même quota. | **Disponible dans WebView2 (WPF, MAUI Windows), WKWebView (MAUI iOS et macOS) et Android WebView : le même code fonctionne dans les trois hôtes.** | En Blazor Hybrid, il faudrait une autre configuration (SQLite natif) : deux variantes à maintenir. |
 
 ## Décision
 
-**Option retenue : 2. IndexedDB via un petit module JavaScript appelé par JS interop, derrière l'interface C# `IVisitRepository` définie dans `TourneeVeto.Domain`.**
+**Option retenue : 2. IndexedDB via un petit module JavaScript appelé par JS interop, derrière l'interface C# `IVisitRepository` de `TourneeVeto.Ui/Data` (implémentation `IndexedDbVisitRepository`, enregistrée en Scoped).**
 
 > **Bonne nouvelle :** IndexedDB existe aussi dans les WebView de WPF (WebView2) et de MAUI. Le même module JS et le même adaptateur C# fonctionnent donc dans les trois hôtes (navigateur, WPF, MAUI), sans réécrire le stockage.
 
 Modalités :
 
-- Un module ES unique (`wwwroot/js/storage.js` de la Razor Class Library, voir [ADR 0002](0002-structure-solution.md)), chargé via `IJSObjectReference`, sans dépendance externe.
-- Object stores : `fermes`, `vaches` (index `fermeId`), `evenements` (index `vacheId`, `date`), `visites` (index `date`, `fermeId`), `photos` (index `visiteId`).
+- Modèle détaillé et exemples qui fonctionnent : skill `indexeddb-interop` (.github/skills/indexeddb-interop).
+- Un module ES unique (`wwwroot/js/visitStore.js` de la Razor Class Library, voir [ADR 0002](0002-structure-solution.md)), importé à la demande via `IJSObjectReference` et libéré dans `DisposeAsync`, sans dépendance externe.
+- Base « tourneeveto » ; object stores `farms`, `visits` (index `farmId`, `date`), `cows` (index `farmId`), `photos` (index `visitId`) ; jeu de démonstration chargé en une transaction, seulement si la base est vide.
+- `QuotaExceededError` et base indisponible remontent en `StorageUnavailableException`, affichée par l'interface.
 - Photos stockées en `Blob` et redimensionnées côté JS, sans passer par .NET ; le Domain ne manipule que leur identifiant.
 - Schéma versionné (`onupgradeneeded`), une migration par version.
 - Demande de stockage persistant (`navigator.storage.persist()`) au premier lancement.
@@ -63,7 +65,7 @@ Modalités :
 - Capacité suffisante pour des centaines de photos, sans Base64.
 - Premier chargement presque inchangé (quelques Ko), CI sans workload natif.
 - Tournée du jour et grille de régie lues par index, sans charger tout le troupeau.
-- Domain testable sans navigateur grâce à `IVisitRepository`.
+- Domain pur, sans accès au stockage : testable sans navigateur ; le repository se teste avec bUnit, sans vraie base.
 
 #### Négatives
 

@@ -57,9 +57,23 @@
 | **Élevage / ferme** | Exploitation laitière suivie par le vétérinaire : un producteur, une adresse, un troupeau de vaches identifiées par un numéro. Au Québec, on parle couramment de « ferme ». |
 | **Visite** | Passage planifié du vétérinaire dans une ferme, à une date donnée, qui produit des résultats de régie, éventuellement un bilan de biosécurité, et un rapport. Une tournée est l'ensemble ordonné des visites d'une journée. |
 | **Régie** | Gestion courante du troupeau. La **grille (ou liste) de régie** est la liste des vaches sur lesquelles une action est attendue lors de la visite, avec le motif (à confirmer gestante, à tarir, post-vêlage, à inséminer, etc.). |
-| **Vêlage** | Mise bas d'une vache ; marque le début d'une lactation. Règle POC : examen post-vêlage entre 21 et 35 jours après le vêlage ; vache non inséminée 60 jours après le vêlage à signaler. |
+| **Vêlage** | Mise bas d'une vache ; marque le début d'une lactation. Règle POC : vêlage prévu = insémination fécondante + 280 jours, signalé dans les 14 jours qui précèdent ; examen post-vêlage entre 21 et 35 jours après le vêlage ; vache vide (non inséminée) plus de 60 jours après le vêlage à signaler. |
 | **Tarissement** | Arrêt volontaire de la traite avant le vêlage suivant pour laisser la mamelle se régénérer. Règle POC : à prévoir 60 jours avant la date de vêlage prévue (gestation comptée à 280 jours après l'insémination fécondante). |
 | **Insémination (IA)** | Dépôt de semence dans l'utérus de la vache (insémination artificielle). La date de la dernière IA sert de base au diagnostic de gestation et au calcul du vêlage prévu. |
-| **Diagnostic de gestation (DG)** | Examen (palpation transrectale ou échographie) confirmant ou non qu'une vache est gestante. Règle POC : à faire à partir de 30 jours après la dernière IA ; résultat positif, négatif ou douteux (à revoir). |
-| **CCS** | Comptage des cellules somatiques du lait, en cellules/mL ; indicateur de mammite subclinique. Norme canadienne pour le lait de réservoir : 400 000 cellules/mL. Règle POC : vache signalée si CCS individuel > 200 000 cellules/mL au dernier contrôle (seuil indicatif). |
+| **Diagnostic de gestation (DG)** | Examen (palpation transrectale ou échographie) confirmant ou non qu'une vache est gestante. Règle POC : à faire entre 30 et 45 jours après la dernière IA ; au-delà de 45 jours sans DG, la vache reste dans la grille, signalée « DG en retard » ; résultat positif, négatif ou douteux (à revoir). |
+| **CCS** | Comptage des cellules somatiques du lait, en cellules/mL ; indicateur de mammite subclinique. Norme canadienne pour le lait de réservoir : 400 000 cellules/mL. Règle POC : vache signalée si CCS individuel > 200 000 cellules/mL au dernier contrôle (seuil indicatif ; valeur stockée en milliers, donc signalée à partir de 201). |
 | **Biosécurité** | Ensemble des mesures qui limitent l'entrée et la propagation des maladies dans la ferme (introduction d'animaux, visiteurs, véhicules, quarantaine, hygiène du vêlage, gestion des animaux morts). Évaluée dans TournéeVéto par un questionnaire simplifié par rubriques. |
+
+### Motifs de la grille de régie (règles POC, seuils par défaut de `RegieThresholds`)
+
+| Motif | Condition (J = jours par rapport à la date de la visite) | Urgence |
+| --- | --- | --- |
+| CCS élevé | Dernier CCS > 200 (milliers de cellules/mL) | Urgent |
+| Vêlage prévu | Gestante ou tarie, vêlage prévu (IA + 280 j) dans 14 jours ou moins, date dépassée comprise | À surveiller |
+| Vache vide | Vide, vêlée depuis plus de 60 jours (J61 et au-delà) | À surveiller |
+| DG en retard | Inséminée sans DG depuis plus de 45 jours | À surveiller |
+| Diagnostic de gestation | Inséminée sans DG depuis 30 à 45 jours | À faire |
+| Post-vêlage | Vêlée depuis 21 à 35 jours | À faire |
+| Tarissement | Gestante non tarie, vêlage prévu dans 60 jours ou moins | Normal |
+
+Une vache qui répond à plusieurs motifs apparaît une seule fois, avec l'urgence la plus élevée. Une date incohérente (IA ou vêlage postérieurs à la visite) ou une gestante sans date d'IA est signalée comme anomalie, sans motif calculé.

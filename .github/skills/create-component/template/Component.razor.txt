@@ -1,0 +1,21 @@
+@* __NOM__ — voir .github/instructions/razor.instructions.md.
+   Aucune logique métier ici : les valeurs calculées arrivent en paramètres depuis TourneeVeto.Domain
+   (ou via IVisitRepository injecté). Pour une page : ajouter @page "/chemin" en première ligne
+   et placer le fichier dans Pages/. *@
+
+<section class="root" aria-labelledby="@titleId">
+    <h2 class="title" id="@titleId">@Title</h2>
+    @ChildContent
+</section>
+
+@code {
+    private readonly string titleId = $"__NOM__-{Guid.NewGuid():N}";
+
+    /// <summary>Titre affiché, qui nomme aussi la section pour les lecteurs d'écran.</summary>
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>Contenu de la section.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

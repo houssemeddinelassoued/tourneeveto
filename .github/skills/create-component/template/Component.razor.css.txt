@@ -1,0 +1,31 @@
+/* __NOM__ — tablette d'abord (768 px), puis téléphone (< 768 px) et poste (≥ 1024 px).
+   Couleurs, espacements et rayons : uniquement les variables de tokens.css.
+   Le CSS isolé est propre au composant : des noms de classes courts (.root, .title) suffisent. */
+
+.root {
+    display: grid;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    background: var(--color-surface);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-lg);
+    color: var(--color-text);
+    font: var(--font-body-md);
+}
+
+.title {
+    margin: 0;
+    font: var(--font-headline-md);
+}
+
+@media (max-width: 767.98px) {
+    .root {
+        padding: var(--space-md);
+    }
+}
+
+@media (min-width: 1024px) {
+    .root {
+        gap: var(--space-sm);
+    }
+}

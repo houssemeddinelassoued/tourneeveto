@@ -1,0 +1,19 @@
+using Bunit;
+using TourneeVeto.Ui.Components; // TourneeVeto.Ui.Pages pour une page
+
+namespace TourneeVeto.Tests.Ui;
+
+// Règles : .github/instructions/tests.instructions.md (noms en français, FakeTimeProvider si la date compte,
+// DemoData.Generate(today, seed) avec un seed fixe, JSInterop.SetupModule pour chaque appel JS).
+public class __NOM__Tests : BunitContext
+{
+    [Fact]
+    public void Affiche_le_titre_et_nomme_la_section()
+    {
+        var cut = Render<__NOM__>(parameters => parameters.Add(p => p.Title, "Titre d'essai"));
+
+        var heading = cut.Find("h2");
+        Assert.Equal("Titre d'essai", heading.TextContent);
+        Assert.Equal(heading.Id, cut.Find("section").GetAttribute("aria-labelledby"));
+    }
+}

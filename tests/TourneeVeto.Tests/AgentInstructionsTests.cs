@@ -52,6 +52,46 @@ public partial class AgentInstructionsTests
         Assert.Empty(differences);
     }
 
+    [Fact]
+    public void Skills_Claude_et_Copilot_ont_le_meme_nom_et_la_meme_description()
+    {
+        var root = SolutionRoot.Find();
+        var copilot = SkillFrontMatters(Path.Combine(root, ".github", "skills"));
+        var claude = SkillFrontMatters(Path.Combine(root, ".claude", "skills"));
+
+        var differences = copilot.Keys.Except(claude.Keys).Select(name => $"{name} : absent de .claude/skills")
+            .Concat(claude.Keys.Except(copilot.Keys).Select(name => $"{name} : absent de .github/skills"))
+            .Concat(copilot.Keys.Intersect(claude.Keys).Where(name => copilot[name] != claude[name]).Select(name => $"{name} : nom ou description différents"))
+            .Concat(copilot.Concat(claude).Where(skill => !skill.Value.Contains($"name: {skill.Key}\n", StringComparison.Ordinal))
+                .Select(skill => $"{skill.Key} : le champ name doit être le nom du dossier"))
+            .ToList();
+
+        Assert.Empty(differences);
+    }
+
+    [Fact]
+    public void Fichiers_cites_par_les_skills_Copilot_existent()
+    {
+        var skillsDirectory = Path.Combine(SolutionRoot.Find(), ".github", "skills");
+        var missing = new List<string>();
+
+        foreach (var skill in Directory.EnumerateDirectories(skillsDirectory))
+        {
+            var instructions = File.ReadAllText(Path.Combine(skill, "SKILL.md"));
+            var referenced = SkillFileReferencePattern().Matches(instructions).Select(match => Path.Combine(skill, match.Groups[1].Value, match.Groups[2].Value))
+                .Concat(ScriptReferencePattern().Matches(instructions).Select(match => Path.Combine(SolutionRoot.Find(), match.Groups[1].Value)));
+
+            missing.AddRange(referenced.Where(path => !File.Exists(path)).Select(path => Path.GetRelativePath(skillsDirectory, path)));
+        }
+
+        Assert.Empty(missing);
+    }
+
+    private static Dictionary<string, string> SkillFrontMatters(string skillsDirectory) =>
+        Directory.EnumerateDirectories(skillsDirectory).ToDictionary(
+            directory => Path.GetFileName(directory),
+            directory => Split(File.ReadAllText(Path.Combine(directory, "SKILL.md"))).FrontMatter + "\n");
+
     private static (string FrontMatter, string Body) Split(string markdown)
     {
         var match = FrontMatterPattern().Match(markdown.ReplaceLineEndings("\n"));
@@ -70,4 +110,10 @@ public partial class AgentInstructionsTests
 
     [GeneratedRegex("<!--.*?-->", RegexOptions.Singleline)]
     private static partial Regex HtmlCommentPattern();
+
+    [GeneratedRegex(@"(template|exemples)/([\w.-]+\.\w+)")]
+    private static partial Regex SkillFileReferencePattern();
+
+    [GeneratedRegex(@"dotnet run (\S+\.cs)")]
+    private static partial Regex ScriptReferencePattern();
 }
