@@ -1,0 +1,5 @@
+numero;nom;date_naissance;lactation;date_velage;date_ia;statut;ccs_milliers
+6001;Câline;2022-03-14;2;2026-06-02;2026-08-20;gestante;95
+6002;Cœur de Lion;2021-05-02;3;2026-07-11;;vide;140
+6003;Étoile;2024-11-20;0;;2026-09-15;inséminée;
+6004;Pâquerette;2020-01-09;4;2025-12-01;2026-02-10;tarie;210

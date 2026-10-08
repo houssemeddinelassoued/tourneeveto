@@ -1,0 +1,2 @@
+# Fichiers d'exemple des tests d'import : octets conservés tels quels (encodage, BOM, fins de ligne).
+tests/TourneeVeto.Tests/Fixtures/*.csv -text
