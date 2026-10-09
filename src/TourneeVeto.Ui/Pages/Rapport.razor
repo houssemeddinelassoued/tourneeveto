@@ -4,6 +4,7 @@
 @using TourneeVeto.Domain.Biosecurity
 @using TourneeVeto.Domain.Regie
 @using TourneeVeto.Domain.Reports
+@using TourneeVeto.Domain.Showcase
 @using TourneeVeto.Domain.Visits
 @using TourneeVeto.Ui.Biosecurity
 @using TourneeVeto.Ui.Data
@@ -15,24 +16,30 @@
 @inject RegieThresholds Thresholds
 @inject ReportPrinter Printer
 
-@* Rapport de visite (maquettes design/stitch/*/rapport.png et rapports.png). Le contenu vient de VisitReports et de
-   BiosecurityScore (TourneeVeto.Domain) ; la page charge, met en forme et lance l'impression (printReport.js). *@
+@* Rapport de visite (maquettes design/stitch/*/rapport.png et rapports.png). Constats, indice et pratiques viennent de
+   VisitReports, BiosecurityScore et ReportShowcaseBuilder (TourneeVeto.Domain) ; la page charge, met en forme et lance
+   l'impression (printReport.js). .mobile-only (< 1024 px) et .desktop-only (>= 1024 px et impression) alternent des textes ;
+   les boutons Partager, Envoyer et Télétransmettre sont simulés. *@
 
 <PageTitle>Rapport de visite — TournéeVéto</PageTitle>
 
 <section class="root" aria-labelledby="report-title" aria-busy="@(report is null && error is null && !string.IsNullOrEmpty(FarmId) ? "true" : "false")">
     <header class="header">
-        <p class="eyebrow">Synthèse de visite</p>
-        <h1 class="title" id="report-title">Rapport de visite</h1>
-        @if (farm is not null)
-        {
-            <p class="farm">@farm.Name · @farm.Municipality · @farm.CowCount vaches</p>
-            <p class="date">Visite du @DateLabel</p>
-        }
-        <p class="disclaimer">@VisitReport.Disclaimer</p>
+        <p class="chips">
+            <span class="chip chip--muted disclaimer">@VisitReport.Disclaimer</span>
+            <span class="chip chip--ok desktop-only">Archivage légal conforme (fictif)</span>
+        </p>
+        <p class="eyebrow desktop-only">Poste clinique officiel</p>
+        <h1 class="title" id="report-title"><span class="mobile-only">Rapport de visite</span><span class="desktop-only">Rapports de visite et bilans sanitaires officiels</span></h1>
         @if (report is not null)
         {
-            <button type="button" class="print" @onclick="PrintAsync">Imprimer / Exporter PDF</button>
+            <p class="banner mobile-only"><span class="banner-dot" aria-hidden="true"></span>Rapport finalisé · Conforme ordre vétérinaire</p>
+            <div class="actions">
+                <button type="button" class="action action--primary print" @onclick="PrintAsync"><span class="mobile-only">Imprimer / Exporter PDF</span><span class="desktop-only">Imprimer / Exporter PDF officiel</span></button>
+                <button type="button" class="action action--secondary mobile-only" @onclick="Simulate">Partager (Email / WhatsApp)</button>
+                <button type="button" class="action action--secondary desktop-only" @onclick="Simulate">Envoyer (Email &amp; WhatsApp)</button>
+                <button type="button" class="action action--teal desktop-only" @onclick="Simulate">Télétransmettre</button>
+            </div>
         }
     </header>
 
@@ -44,7 +51,7 @@
     {
         <p class="error" role="alert">@error</p>
     }
-    else if (report is null)
+    else if (report is null || showcase is null || profile is null || farm is null)
     {
         <p class="status">Chargement du rapport…</p>
     }
@@ -55,106 +62,336 @@
             <p class="error" role="alert">@printError</p>
         }
 
+        @if (message is not null)
+        {
+            <p class="simulated" role="status">@message</p>
+        }
+
         @if (!hasVisit)
         {
             <p class="warning" role="status">Aucune visite prévue aujourd'hui pour cette ferme : aucun résultat n'a été saisi.</p>
         }
 
-        <section class="block" aria-labelledby="regie-title">
-            <h2 class="block-title" id="regie-title"><span class="step" aria-hidden="true">1</span> Constats de régie</h2>
-            <p class="summary">@report.SeenCount vache(s) vue(s) · @report.NotSeenCount non vue(s) sur @report.Lines.Count dans la grille</p>
-            @if (report.Lines.Count == 0)
-            {
-                <p class="status">Aucune action de régie pour cette visite.</p>
-            }
-            else
-            {
-                <table class="report-table">
-                    <caption class="visually-hidden">Constats de régie par vache</caption>
-                    <thead>
-                        <tr>
-                            <th scope="col">Vache</th>
-                            <th scope="col">Motif</th>
-                            <th scope="col">Résultat</th>
-                            <th scope="col">Note</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var line in report.Lines)
-                        {
-                            <tr @key="line.Cow.Id">
-                                <th scope="row">
-                                    <span class="cow-id">@line.Cow.Id</span>
-                                    <span class="cow-name">@line.Cow.Name</span>
-                                </th>
-                                <td class="motives">@Motives(line)</td>
-                                <td class="result">
-                                    @if (!line.IsSeen)
-                                    {
-                                        <text>Non vue</text>
-                                    }
-                                    else
-                                    {
-                                        @foreach (var result in line.Results)
-                                        {
-                                            <span class="result-item">@RegieLabels.Action(result.Action) : @(result.Outcome is { } outcome ? ResultLabels.For(result.Action, outcome) : "Non vue")</span>
-                                        }
-                                    }
-                                </td>
-                                <td class="note">@line.Note</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-        </section>
-
-        <section class="block" aria-labelledby="bio-title">
-            <h2 class="block-title" id="bio-title"><span class="step" aria-hidden="true">2</span> Indice de biosécurité</h2>
-            @if (report.Biosecurity is not { } bio)
-            {
-                <p class="not-done" role="status">Bilan de biosécurité non réalisé</p>
-            }
-            else
-            {
-                <p class="global-score global-score--@BiosecurityLabels.Tone(bio.OverallLevel)">
-                    <span class="global-value">@(bio.OverallScore?.ToString(CultureInfo.InvariantCulture) ?? "—")<span class="global-max"> / 100</span></span>
-                    <span class="global-level">@BiosecurityLabels.Risk(bio.OverallLevel)</span>
-                </p>
-                <ul class="bio-sections" role="list">
-                    @foreach (var section in bio.Sections)
+        var vet = ShowcaseBuilder.DemoVeterinarian;
+        var repro = showcase.Reproduction;
+        <div class="layout">
+            <aside class="history desktop-only" aria-labelledby="history-title">
+                <div class="history-head">
+                    <h2 class="history-title" id="history-title">Historique des visites</h2>
+                    <span class="chip chip--info">@ShowcaseLabels.Count(HistoryCount, "synthèse", "synthèses")</span>
+                </div>
+                <label class="field">
+                    <span class="visually-hidden">Filtrer élevage, mot-clé</span>
+                    <input class="search" type="search" placeholder="Filtrer élevage, mot-clé…" @bind="term" @bind:event="oninput" autocomplete="off" />
+                </label>
+                <div class="filters">
+                    <label class="field">
+                        <span class="visually-hidden">Praticien</span>
+                        <select class="select" @bind="practitioner">
+                            <option value="">Tous les praticiens</option>
+                            <option value="@vet.Name">@vet.Name</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span class="visually-hidden">Mois</span>
+                        <select class="select" @bind="month">
+                            <option value="">Tous les mois</option>
+                            @foreach (var key in MonthKeys)
+                            {
+                                <option value="@key">@MonthLabel(key)</option>
+                            }
+                        </select>
+                    </label>
+                </div>
+                <ul class="history-list" role="list">
+                    @if (ShowCurrent)
                     {
-                        <li class="bio-section bio-section--@BiosecurityLabels.Tone(section.Level)">
-                            <span class="bio-section-name">@section.Section</span>
-                            <span class="bio-section-score">@BiosecurityLabels.Score(section)</span>
+                        <li class="visit-card visit-card--current">
+                            <p class="visit-top"><span class="visit-date">@ShowcaseLabels.ShortDate(report.Date)</span><span class="visit-status">Sélectionné</span></p>
+                            <p class="visit-farm">@farm.Name</p>
+                            <p class="visit-reason">@profile.Reason</p>
+                            <p class="visit-bottom"><span class="visit-ref">@showcase.Reference</span><span class="visit-outcome">@(repro.RatePercent is int rate ? $"{rate} % Repro" : "En cours")</span></p>
+                        </li>
+                    }
+                    @foreach (var past in VisiblePast)
+                    {
+                        <li class="visit-card" @key="past.Reference">
+                            <p class="visit-top"><span class="visit-date">@ShowcaseLabels.ShortDate(past.Date)</span><span class="visit-status visit-status--@StatusClass(past.Status)">@past.Status</span></p>
+                            <p class="visit-farm">@past.FarmName</p>
+                            <p class="visit-reason">@past.Reason</p>
+                            <p class="visit-bottom"><span class="visit-ref">@past.Reference</span><span class="visit-outcome">@past.Outcome</span></p>
                         </li>
                     }
                 </ul>
+                @if (HistoryCount == 0)
+                {
+                    <p class="status" role="status">Aucune synthèse ne correspond au filtre.</p>
+                }
+                <p class="legal">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6zM9 12l2 2 4-4" /></svg>
+                    <span><strong>Sécurisation légale GDS/DDPP (fictif)</strong> Chaque protocole validé génère une empreinte immuable stockée localement : démonstration, aucun dépôt réel.</span>
+                </p>
+            </aside>
 
-                <h3 class="sub-title">Pratiques prioritaires</h3>
-                @if (bio.PriorityPractices.Count == 0)
-                {
-                    <p class="status">Aucune pratique à améliorer.</p>
-                }
-                else
-                {
-                    <ol class="priority-list">
-                        @foreach (var practice in bio.PriorityPractices)
+            <article class="document" aria-labelledby="doc-title">
+                <header class="doc-head">
+                    <p class="doc-chip desktop-only">Document officiel A4 · Télétransmission directe (fictif)</p>
+                    <p class="doc-eyebrow mobile-only">Synthèse médicale de visite sanitaire</p>
+                    <p class="doc-ref"><span class="doc-ref-label mobile-only">Réf : </span><strong class="reference">@showcase.Reference</strong><span class="doc-stamp desktop-only">Horodatage : @ShowcaseLabels.ShortDate(report.Date) à @ReportLabels.Clock(showcase.ValidatedAt)<br />Certification cryptographique active</span></p>
+                    <h2 class="doc-title" id="doc-title"><span class="mobile-only">@farm.Name</span><span class="desktop-only">Synthèse médicale sanitaire &amp; de régie</span></h2>
+                    <p class="farm">@farm.Name · @farm.Municipality · @farm.CowCount vaches<span class="mobile-only"> · @profile.Breed</span></p>
+                    <p class="date">Visite du @DateLabel</p>
+                </header>
+
+                <div class="parties">
+                    <section class="party desktop-only" aria-labelledby="party-farm">
+                        <p class="party-label" id="party-farm">Exploitation agricole</p>
+                        <p class="party-name">@farm.Name</p>
+                        <p class="party-line">Titulaire : @profile.Farmer</p>
+                        <p class="party-line">N° d'élevage : <span class="mono">@profile.Identifier</span></p>
+                        <p class="party-line">@profile.Description</p>
+                    </section>
+                    <section class="party" aria-labelledby="party-vet">
+                        <p class="party-label" id="party-vet"><span class="mobile-only">Praticien référent</span><span class="desktop-only">Praticien vétérinaire</span></p>
+                        <p class="party-name">@vet.Name</p>
+                        <p class="party-line">@vet.OrderNumber</p>
+                        <p class="party-line desktop-only">@vet.ClinicName</p>
+                    </section>
+                    <section class="party mobile-only" aria-labelledby="party-date">
+                        <p class="party-label" id="party-date">Date &amp; intervention</p>
+                        <p class="party-name">@ShowcaseLabels.ShortDate(report.Date)</p>
+                        <p class="party-line">Durée effective : @ShowcaseLabels.Duration(profile.VisitMinutes)</p>
+                    </section>
+                </div>
+
+                <section class="block" aria-labelledby="findings-title">
+                    <h2 class="block-title" id="findings-title"><span class="step" aria-hidden="true">1</span><span class="mobile-only">Constats cliniques &amp; régie</span><span class="desktop-only">Constats cliniques &amp; bilan de régie</span></h2>
+                    <p class="summary">@report.SeenCount vache(s) vue(s) · @report.NotSeenCount non vue(s) sur @report.Lines.Count dans la grille</p>
+                    <div class="findings">
+                        <section class="tile" aria-labelledby="tile-repro">
+                            <p class="tile-label" id="tile-repro">Reproduction</p>
+                            <p class="tile-value tile-value--@ReportLabels.RateTone(repro.RatePercent)">
+                                @(repro.RatePercent is int rateValue ? $"{rateValue} %" : "—")<span class="tile-unit"> @ReportLabels.RateVerdict(repro.RatePercent)</span>
+                            </p>
+                            <p class="tile-text">@ReportLabels.ReproductionText(repro)</p>
+                            @if (repro.HasData)
+                            {
+                                <progress class="meter meter--@ReportLabels.RateTone(repro.RatePercent)" max="100" value="@repro.RatePercent" aria-label="Taux de gestation">@repro.RatePercent %</progress>
+                                <p class="tile-foot">@repro.Pregnant @(repro.Pregnant > 1 ? "pleines" : "pleine") · @repro.Empty @(repro.Empty > 1 ? "vides" : "vide")</p>
+                            }
+                        </section>
+                        @foreach (var finding in showcase.Findings)
                         {
-                            <li>
-                                <span class="priority-text">@practice.Text</span>
-                                <span class="priority-meta">@practice.Section@(practice.IsCritical ? " · Point critique" : "")</span>
-                            </li>
+                            <section class="tile tile--@finding.Kind" aria-labelledby="@($"tile-{finding.Kind}")" @key="finding.Kind">
+                                <p class="tile-label" id="@($"tile-{finding.Kind}")">@finding.Title</p>
+                                <p class="tile-value @(finding.Count > 0 && finding.Kind == "mammary" ? "tile-value--urgent" : null)">
+                                    @(finding.HasData ? finding.Count.ToString(CultureInfo.InvariantCulture) : "—")<span class="tile-unit"> @finding.CountLabel</span>
+                                </p>
+                                <p class="tile-text">@ReportLabels.FindingText(finding)</p>
+                            </section>
                         }
-                    </ol>
-                }
-            }
-        </section>
+                    </div>
+                </section>
+
+                <section class="block" aria-labelledby="bio-title">
+                    <h2 class="block-title" id="bio-title"><span class="step" aria-hidden="true">2</span><span class="mobile-only">Indice de biosécurité</span><span class="desktop-only">Indice global de biosécurité &amp; hygiène</span></h2>
+                    @if (report.Biosecurity is not { } bio)
+                    {
+                        <p class="not-done" role="status">Bilan de biosécurité non réalisé</p>
+                    }
+                    else
+                    {
+                        var tone = BiosecurityLabels.Tone(bio.OverallLevel);
+                        <div class="bio-panel">
+                            <div class="ring-wrap">
+                                <svg class="ring" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+                                    <circle class="ring-track" cx="50" cy="50" r="42" fill="none" stroke-width="9" />
+                                    @if (bio.OverallScore is not null)
+                                    {
+                                        <circle class="ring-value ring-value--@tone" cx="50" cy="50" r="42" fill="none" stroke-width="9" stroke-linecap="round"
+                                                stroke-dasharray="@BiosecurityLabels.RingDash(bio.OverallScore)" transform="rotate(-90 50 50)" />
+                                    }
+                                </svg>
+                                <span class="ring-center" aria-hidden="true"><span class="ring-number">@(bio.OverallScore?.ToString(CultureInfo.InvariantCulture) ?? "—")</span><span class="ring-max">/100</span></span>
+                            </div>
+                            <div class="bio-body">
+                                <p class="global-score global-score--@tone">
+                                    <span class="visually-hidden">Indice global : @(bio.OverallScore?.ToString(CultureInfo.InvariantCulture) ?? "non évalué") sur 100. </span>
+                                    <span class="global-level">@BiosecurityLabels.Verdict(bio.OverallLevel) · @BiosecurityLabels.Risk(bio.OverallLevel)</span>
+                                </p>
+                                <p class="bio-text">@BioText(bio.OverallLevel)</p>
+                            </div>
+                        </div>
+                        <ul class="bio-sections" role="list">
+                            @foreach (var section in bio.Sections)
+                            {
+                                <li class="bio-section bio-section--@BiosecurityLabels.Tone(section.Level)">
+                                    <span class="bio-section-name">@section.Section</span>
+                                    <span class="bio-section-score">@BiosecurityLabels.Score(section)</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+
+                <section class="block block--priority" aria-labelledby="priority-title">
+                    <h2 class="block-title" id="priority-title"><span class="step" aria-hidden="true">3</span>@ReportLabels.PracticesTitle(showcase.Practices.Count)</h2>
+                    @if (report.Biosecurity is null)
+                    {
+                        <p class="status">Aucune pratique prescrite : le bilan de biosécurité n'a pas été réalisé.</p>
+                    }
+                    else if (showcase.Practices.Count == 0)
+                    {
+                        <p class="status">Aucune pratique à améliorer.</p>
+                    }
+                    else
+                    {
+                        <p class="summary mobile-only">Mesures correctives à maintenir jusqu'au prochain passage de contrôle (J+15).</p>
+                        <ol class="priority-list">
+                            @foreach (var item in showcase.Practices)
+                            {
+                                <li @key="item.Practice.Id" class="@(item.Immediate ? "priority--critical" : null)">
+                                    <span class="rank" aria-hidden="true">@item.Rank.ToString("D2")</span>
+                                    <span class="priority-text">@item.Practice.Text</span>
+                                    <span class="priority-meta">@item.Practice.Section@(item.Practice.IsCritical ? " · Point critique" : "")</span>
+                                    <span class="deadline">@(item.Immediate ? "Application immédiate · " : "")Échéance : @item.Deadline</span>
+                                </li>
+                            }
+                        </ol>
+                    }
+                </section>
+
+                <section class="block" aria-labelledby="photos-title">
+                    <h2 class="block-title" id="photos-title"><span class="step" aria-hidden="true">4</span><span class="mobile-only">Photos d'observation terrain</span><span class="desktop-only">Clichés photographiques terrain horodatés</span></h2>
+                    <div class="photos">
+                        @foreach (var photo in showcase.Photos)
+                        {
+                            <figure class="photo" @key="photo.Kind">
+                                <div class="photo-frame">
+                                    @if (photo.Kind == "calving")
+                                    {
+                                        <svg viewBox="0 0 200 120" role="img" aria-label="Illustration fictive d'un box de mise-bas paillé">
+                                            <rect class="ph-wall" x="0" y="0" width="200" height="70" />
+                                            <rect class="ph-straw" x="0" y="70" width="200" height="50" />
+                                            <path class="ph-rail" d="M0 38H200M0 52H200M30 20V72M80 20V72M130 20V72M180 20V72" />
+                                            <ellipse class="ph-cow" cx="70" cy="86" rx="34" ry="16" />
+                                            <circle class="ph-cow" cx="38" cy="78" r="9" />
+                                            <ellipse class="ph-calf" cx="140" cy="100" rx="20" ry="9" />
+                                            <circle class="ph-calf" cx="123" cy="96" r="6" />
+                                        </svg>
+                                    }
+                                    else
+                                    {
+                                        <svg viewBox="0 0 200 120" role="img" aria-label="Illustration fictive du contrôle d'un trayon">
+                                            <rect class="ph-wall" x="0" y="0" width="200" height="120" />
+                                            <path class="ph-cow" d="M0 120V60C40 40 90 40 130 52 160 60 190 80 200 90V120Z" />
+                                            <rect class="ph-teat" x="92" y="52" width="14" height="40" rx="7" />
+                                            <path class="ph-glove" d="M30 110C48 80 80 66 100 74 120 82 104 98 80 100 66 102 56 110 50 120Z" />
+                                            <path class="ph-glove" d="M96 66C108 60 116 70 108 78Z" />
+                                        </svg>
+                                    }
+                                    <span class="photo-time">@ShowcaseLabels.ShortDate(photo.Date) · @ReportLabels.Clock(photo.Time)</span>
+                                    <span class="photo-tag">Photo fictive</span>
+                                </div>
+                                <figcaption class="photo-caption">
+                                    <span class="photo-title">@photo.Title</span>
+                                    <span class="photo-text">@photo.Caption</span>
+                                </figcaption>
+                            </figure>
+                        }
+                    </div>
+                </section>
+
+                <section class="block" aria-labelledby="sign-title">
+                    <h2 class="block-title" id="sign-title"><span class="step" aria-hidden="true">5</span><span class="mobile-only">Validation &amp; émargements</span><span class="desktop-only">Validation légale &amp; émargements cryptographiques</span></h2>
+                    <p class="validated">Validé hors-ligne à @ReportLabels.Clock(showcase.ValidatedAt)</p>
+                    <div class="signatures">
+                        @foreach (var (signature, index) in showcase.Signatures.Select((signature, index) => (signature, index)))
+                        {
+                            <section class="signature" aria-label="@signature.Role" @key="signature.Role">
+                                <p class="signature-role">@signature.Role</p>
+                                <p class="signature-name">@signature.Name</p>
+                                <p class="signature-detail">@signature.Detail</p>
+                                <svg class="trace" viewBox="0 0 160 40" role="img" aria-label="Tracé de signature fictif">
+                                    <path d="@SignaturePaths[index % SignaturePaths.Length]" fill="none" stroke-width="2" stroke-linecap="round" />
+                                </svg>
+                                <p class="signature-stamp">[Signé numériquement le @ShowcaseLabels.ShortDate(report.Date) à @ReportLabels.Clock(signature.SignedAt)]</p>
+                            </section>
+                        }
+                    </div>
+                    <p class="hash">
+                        <span class="hash-label">Empreinte SHA-256 : </span>
+                        <code class="hash-short mobile-only" title="@showcase.Fingerprint">@showcase.ShortFingerprint</code>
+                        <code class="hash-full desktop-only">@showcase.Fingerprint</code>
+                        <span class="hash-note">Calculée localement sur le contenu du rapport · synchronisation différée active</span>
+                    </p>
+                </section>
+
+                <section class="block" aria-labelledby="annex-title">
+                    <h2 class="block-title" id="annex-title"><span class="step" aria-hidden="true">A</span>Annexe : constats de régie par vache</h2>
+                    @if (report.Lines.Count == 0)
+                    {
+                        <p class="status">Aucune action de régie pour cette visite.</p>
+                    }
+                    else
+                    {
+                        <table class="report-table">
+                            <caption class="visually-hidden">Constats de régie par vache</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Vache</th>
+                                    <th scope="col">Motif</th>
+                                    <th scope="col">Résultat</th>
+                                    <th scope="col">Note</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var line in report.Lines)
+                                {
+                                    <tr @key="line.Cow.Id">
+                                        <th scope="row">
+                                            <span class="cow-id">@line.Cow.Id</span>
+                                            <span class="cow-name">@line.Cow.Name</span>
+                                        </th>
+                                        <td class="motives">@Motives(line)</td>
+                                        <td class="result">
+                                            @if (!line.IsSeen)
+                                            {
+                                                <text>Non vue</text>
+                                            }
+                                            else
+                                            {
+                                                @foreach (var result in line.Results)
+                                                {
+                                                    <span class="result-item">@RegieLabels.Action(result.Action) : @(result.Outcome is { } outcome ? ResultLabels.For(result.Action, outcome) : "Non vue")</span>
+                                                }
+                                            }
+                                        </td>
+                                        <td class="note">@line.Note</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </section>
+
+                <footer class="doc-foot">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6zM9 12l2 2 4-4" /></svg>
+                    <p>Fiche sanitaire de démonstration, sans valeur légale. Généré via TournéeVéto hors-ligne · @farm.Name. @VisitReport.Disclaimer.</p>
+                </footer>
+            </article>
+        </div>
     }
 </section>
 
 @code {
     private static readonly CultureInfo FrenchCanada = CultureInfo.GetCultureInfo("fr-CA");
+
+    private static readonly string[] SignaturePaths =
+    [
+        "M4 28C14 6 24 6 28 22S40 34 52 14 66 8 72 24 90 30 100 16 118 10 124 24 142 28 156 14",
+        "M4 20C20 34 30 4 44 20S62 34 76 12 92 4 98 22 120 36 134 18 148 12 156 22",
+    ];
 
     private Farm? farm;
     private VisitReport? report;
@@ -162,6 +399,12 @@
     private string? printError;
     private bool hasVisit;
     private DateOnly today;
+    private FarmShowcase? profile;
+    private ReportShowcase? showcase;
+    private string? message;
+    private string term = string.Empty;
+    private string practitioner = string.Empty;
+    private string month = string.Empty;
 
     /// <summary>Identifiant de la ferme visitée ; vide sur /rapport, qui propose les fermes du jour.</summary>
     [Parameter]
@@ -169,9 +412,28 @@
 
     private string DateLabel => today.ToString("d MMMM yyyy", FrenchCanada);
 
+    private bool ShowCurrent => report is not null && farm is not null && profile is not null && showcase is not null
+        && (practitioner.Length == 0 || practitioner == ShowcaseBuilder.DemoVeterinarian.Name)
+        && (month.Length == 0 || month == ReportShowcaseBuilder.MonthKey(report.Date))
+        && ReportShowcaseBuilder.Matches(term, farm.Name, profile.Reason, showcase.Reference);
+
+    private IEnumerable<PastVisit> VisiblePast => showcase is null
+        ? []
+        : showcase.PastVisits.Where(past =>
+            (practitioner.Length == 0 || practitioner == ShowcaseBuilder.DemoVeterinarian.Name)
+            && (month.Length == 0 || month == ReportShowcaseBuilder.MonthKey(past.Date))
+            && ReportShowcaseBuilder.Matches(term, past.FarmName, past.Reason, past.Reference, past.Status, past.Outcome));
+
+    private int HistoryCount => (ShowCurrent ? 1 : 0) + VisiblePast.Count();
+
+    private IEnumerable<string> MonthKeys => showcase is null || report is null
+        ? []
+        : showcase.PastVisits.Select(past => past.Date).Append(report.Date).Select(ReportShowcaseBuilder.MonthKey).Distinct().OrderDescending(StringComparer.Ordinal);
+
     protected override async Task OnParametersSetAsync()
     {
         (farm, report, error, printError, hasVisit) = (null, null, null, null, false);
+        (profile, showcase, message) = (null, null, null);
         if (string.IsNullOrEmpty(FarmId))
         {
             return;
@@ -180,8 +442,10 @@
         try
         {
             await Seeder.EnsureSeededAsync();
-            today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
-            farm = (await Repository.GetFarmsAsync()).FirstOrDefault(candidate => candidate.Id == FarmId);
+            var now = TimeProvider.GetLocalNow();
+            today = DateOnly.FromDateTime(now.DateTime);
+            var farms = await Repository.GetFarmsAsync();
+            farm = farms.FirstOrDefault(candidate => candidate.Id == FarmId);
             if (farm is null)
             {
                 error = "Ferme introuvable.";
@@ -189,7 +453,8 @@
             }
 
             var cows = await Repository.GetCowsByFarmAsync(FarmId);
-            var visit = (await Repository.GetVisitsByDateAsync(today)).FirstOrDefault(candidate => candidate.FarmId == FarmId);
+            var todaysVisits = await Repository.GetVisitsByDateAsync(today);
+            var visit = todaysVisits.FirstOrDefault(candidate => candidate.FarmId == FarmId);
             hasVisit = visit is not null;
             IReadOnlyList<CowVisitRecord> records = visit is null ? [] : await Repository.GetVisitRecordsAsync(visit.Id);
             BiosecurityResult? biosecurity = null;
@@ -199,12 +464,16 @@
             }
 
             report = VisitReports.Build(farm.Name, today, DailyActions.Compute(cows, today, Thresholds), records, biosecurity);
+            profile = ShowcaseBuilder.ProfileOf(farms, todaysVisits, FarmId, today);
+            showcase = profile is null ? null : ReportShowcaseBuilder.Build(report, profile, farms, today, TimeOnly.FromDateTime(now.DateTime));
         }
         catch (StorageUnavailableException exception)
         {
             error = exception.Message;
         }
     }
+
+    private void Simulate() => message = "Démonstration : fonction simulée, aucune donnée envoyée.";
 
     private async Task PrintAsync()
     {
@@ -218,6 +487,23 @@
             printError = "Impression impossible sur cet appareil.";
         }
     }
+
+    private static string MonthLabel(string key) => ShowcaseLabels.MonthYear(DateOnly.ParseExact(key + "-01", "yyyy-MM-dd", CultureInfo.InvariantCulture));
+
+    private static string StatusClass(string status) => status switch
+    {
+        "Signé" => "ok",
+        "Télétransmis" => "info",
+        _ => "neutral",
+    };
+
+    private static string BioText(RiskLevel level) => level switch
+    {
+        RiskLevel.Low => "Conformité à la charte sanitaire fictive : risque faible. Maintenir les bonnes pratiques de circulation et de nettoyage.",
+        RiskLevel.Moderate => "Conformité partielle à la charte sanitaire fictive : risque modéré. Des points de vigilance sont à traiter avant le prochain passage.",
+        RiskLevel.High => "Non-conformité à traiter en priorité : risque élevé. Appliquer sans délai les pratiques prioritaires ci-dessous.",
+        _ => "Aucune réponse évaluable pour l'instant.",
+    };
 
     private static string Motives(ReportLine line) =>
         line.Results.Count > 0

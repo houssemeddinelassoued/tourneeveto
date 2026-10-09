@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 using TourneeVeto.Domain;
 using TourneeVeto.Domain.Biosecurity;
+using TourneeVeto.Domain.Showcase;
 using TourneeVeto.Domain.Visits;
 using TourneeVeto.Ui;
 using TourneeVeto.Ui.Biosecurity;
@@ -61,7 +62,7 @@ public class BiosecuriteTests : BunitContext, IAsyncLifetime
         var cut = RenderFarm();
 
         Assert.Equal(5, cut.FindAll(".section-tab").Count);
-        Assert.All(cut.FindAll(".section-tab-score"), score => Assert.Equal("Non évaluée", score.TextContent));
+        Assert.All(cut.FindAll(".section-tab-score"), score => Assert.Equal("À auditer", score.TextContent));
         Assert.Equal("true", cut.FindAll(".section-tab")[0].GetAttribute("aria-pressed"));
         Assert.Equal(3, cut.FindAll(".question").Count);
         Assert.Equal(4, cut.FindAll(".question")[0].QuerySelectorAll("input[type=radio]").Length);
@@ -75,7 +76,7 @@ public class BiosecuriteTests : BunitContext, IAsyncLifetime
 
         cut.FindAll($"input[name=q-{critical.Id}]")[2].Change(true);   // Non
 
-        Assert.Equal("Risque élevé · 0/100", cut.FindAll(".section-tab-score")[0].TextContent);
+        Assert.Equal("0 % · Point de vigilance", cut.FindAll(".section-tab-score")[0].TextContent);
         Assert.Equal(critical.Text, cut.Find(".priority-text").TextContent);
         Assert.Contains("Point critique", cut.Find(".priority-meta").TextContent);
     }
@@ -85,8 +86,8 @@ public class BiosecuriteTests : BunitContext, IAsyncLifetime
     {
         var cut = RenderFarm();
 
-        Assert.Equal("Indice global", cut.Find(".global-title").TextContent);
-        Assert.Equal("Non évaluée", cut.Find(".global-level").TextContent);
+        Assert.Equal("Indice global exploitation", cut.Find(".global-title").TextContent);
+        Assert.Equal("Non évalué", cut.Find(".global-level").TextContent);
         Assert.Equal("0 / 15 questions renseignées", cut.Find(".global-answered").TextContent);
         Assert.Empty(cut.FindAll(".global-value"));
     }
@@ -104,9 +105,9 @@ public class BiosecuriteTests : BunitContext, IAsyncLifetime
         var expected = BiosecurityScore.Compute(BiosecurityQuestionnaire.Default,
             new Dictionary<string, Answer> { [first.Id] = Answer.Yes, [second.Id] = Answer.Partial });
         Assert.Equal($"{expected.OverallScore} %", cut.Find(".global-value").TextContent.Trim());
-        Assert.Equal(TourneeVeto.Ui.Formatting.BiosecurityLabels.Risk(expected.OverallLevel), cut.Find(".global-level").TextContent);
+        Assert.Equal(TourneeVeto.Ui.Formatting.BiosecurityLabels.Verdict(expected.OverallLevel), cut.Find(".global-level").TextContent);
         Assert.Equal("2 / 15 questions renseignées", cut.Find(".global-answered").TextContent);
-        Assert.NotNull(cut.Find(".side > .global-panel + .sections"));
+        Assert.NotNull(cut.Find(".side > .global-panel + .sections-panel"));
     }
 
     [Fact]
@@ -144,7 +145,7 @@ public class BiosecuriteTests : BunitContext, IAsyncLifetime
         var cut = RenderFarm();
 
         Assert.True(cut.FindAll($"input[name=q-{question.Id}]")[1].HasAttribute("checked"));
-        Assert.NotEqual("Non évaluée", cut.FindAll(".section-tab-score")[0].TextContent);
+        Assert.Equal("50 % · En cours", cut.FindAll(".section-tab-score")[0].TextContent);
     }
 
     [Fact]
@@ -163,7 +164,108 @@ public class BiosecuriteTests : BunitContext, IAsyncLifetime
         Assert.Contains("level--neutral", cut.Find(".section-meta .level").ClassName);
         Assert.Equal("Non évaluée", cut.Find(".section-meta .level").TextContent);
         Assert.Equal("Aucune pratique à améliorer pour l'instant : répondez aux questions de chaque rubrique.", cut.Find(".priorities .status").TextContent);
-        Assert.All(cut.FindAll(".section-tab-score"), score => Assert.Equal("Non évaluée", score.TextContent));
+        Assert.All(cut.FindAll(".section-tab-score").Skip(1), score => Assert.Equal("À auditer", score.TextContent));
+    }
+
+    [Fact]
+    public void Chaque_question_a_une_description_une_observation_un_constat_et_une_preconisation()
+    {
+        var generic = BiosecurityAudit.Criterion("inconnue");
+
+        Assert.All(BiosecurityQuestionnaire.Default, question => Assert.NotEqual(generic, BiosecurityAudit.Criterion(question.Id)));
+        Assert.All(BiosecurityQuestionnaire.Default.Select(question => question.Section).Distinct(), section => Assert.NotEqual(BiosecurityAudit.Section("inconnue"), BiosecurityAudit.Section(section)));
+    }
+
+    [Fact]
+    public void En_tete_du_poste_affiche_agrement_auditeur_et_lien_vers_le_rapport_consolide()
+    {
+        var cut = RenderFarm();
+
+        Assert.Contains("Agrément N° 76-BIO-2026-001 (fictif)", cut.Markup);
+        Assert.Contains("Dre Camille Exemple", cut.Find(".meta").TextContent);
+        Assert.Equal("rapport/F001", cut.Find("a.action--primary").GetAttribute("href"));
+        Assert.Equal("Rapport consolidé", cut.Find("a.action--primary").TextContent);
+    }
+
+    [Fact]
+    public void Exporter_audit_est_simule_sans_envoi()
+    {
+        var cut = RenderFarm();
+
+        cut.Find("button.action--secondary").Click();
+
+        Assert.Equal("Démonstration : fonction simulée, aucune donnée envoyée.", cut.Find(".saved").TextContent);
+        Assert.DoesNotContain("putBiosecurity", module.Invocations.Select(invocation => invocation.Identifier));
+    }
+
+    [Fact]
+    public void Reponse_Non_affiche_le_constat_clinique_et_l_alerte_reglementaire()
+    {
+        var cut = RenderFarm();
+        var question = BiosecurityQuestionnaire.Default[0];
+        Assert.Empty(cut.FindAll(".regulatory"));
+
+        cut.FindAll($"input[name=q-{question.Id}]")[2].Change(true);   // Non
+
+        Assert.Equal("Alerte réglementaire", cut.Find(".regulatory").TextContent);
+        Assert.Equal($"Constat clinique : {BiosecurityAudit.Criterion(question.Id).ClinicalFinding}", cut.Find(".observation--no").TextContent);
+        Assert.Contains("Critère 1.1", cut.Find(".criterion").TextContent);
+        Assert.Equal(BiosecurityAudit.Criterion(question.Id).Recommendation, cut.Find(".recommendation-text").TextContent);
+        Assert.Equal(question.Text, cut.Find(".recommendation-title").TextContent);
+        Assert.Contains("Alertes critiques : 1", cut.Find(".stats").TextContent);
+    }
+
+    [Fact]
+    public void Reponse_Partiel_affiche_l_observation()
+    {
+        var cut = RenderFarm();
+        var question = BiosecurityQuestionnaire.Default[1];
+
+        cut.FindAll($"input[name=q-{question.Id}]")[1].Change(true);   // Partiel
+
+        Assert.Equal($"Observation : {BiosecurityAudit.Criterion(question.Id).PartialObservation}", cut.Find(".observation").TextContent);
+    }
+
+    [Fact]
+    public void Anneau_de_l_indice_global_n_apparait_qu_avec_une_reponse_evaluable()
+    {
+        var cut = RenderFarm();
+        Assert.Empty(cut.FindAll(".ring-value"));
+
+        cut.FindAll($"input[name=q-{BiosecurityQuestionnaire.Default[0].Id}]")[0].Change(true);   // Oui
+
+        Assert.Equal(TourneeVeto.Ui.Formatting.BiosecurityLabels.RingDash(100), cut.Find(".ring-value").GetAttribute("stroke-dasharray"));
+    }
+
+    [Fact]
+    public void Recalculer_affiche_un_message_de_statut()
+    {
+        var cut = RenderFarm();
+
+        cut.Find("button.footer-button.mobile-only").Click();
+
+        Assert.Equal("Bilan recalculé à partir des réponses saisies.", cut.Find(".saved").TextContent);
+    }
+
+    [Fact]
+    public void Enregistrer_la_section_reecrit_les_reponses_pour_la_visite_du_jour()
+    {
+        var cut = RenderFarm();
+        cut.FindAll($"input[name=q-{BiosecurityQuestionnaire.Default[0].Id}]")[0].Change(true);
+
+        cut.Find("button.footer-button.desktop-only").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(2, module.Invocations["putBiosecurity"].Count));
+    }
+
+    [Fact]
+    public void Etape_et_navigation_suivent_la_rubrique_affichee()
+    {
+        var cut = RenderFarm();
+
+        Assert.Contains("Étape 1 sur 5", cut.Find(".sections-count").TextContent);
+        Assert.Contains("Suivant : Visiteurs et véhicules", cut.Find("button.next").TextContent);
+        Assert.Contains("Section suivante (Visiteurs et véhicules)", cut.Find("button.next").TextContent);
     }
 
     [Fact]

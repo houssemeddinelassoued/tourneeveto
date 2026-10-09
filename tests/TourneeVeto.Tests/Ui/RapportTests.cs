@@ -79,6 +79,7 @@ public class RapportTests : BunitContext, IAsyncLifetime
         Assert.Contains("8 octobre 2026", cut.Find(".date").TextContent);
         Assert.Equal(DailyActions.Compute(data.Cows, Today).Items.Select(item => item.Cow.Id), cut.FindAll(".report-table tbody tr").Select(row => row.QuerySelector(".cow-id")!.TextContent));
         Assert.Equal(5, cut.FindAll(".bio-sections li").Count);
+        Assert.Contains("3 Pratiques prioritaires prescrites", cut.Find("#priority-title").TextContent);
         Assert.Equal(3, cut.FindAll(".priority-list li").Count);
         Assert.Contains("Données fictives — règles simplifiées", cut.Find(".disclaimer").TextContent);
         Assert.NotEmpty(cut.Find(".global-score").TextContent);
@@ -125,7 +126,80 @@ public class RapportTests : BunitContext, IAsyncLifetime
         await cut.Find("button.print").ClickAsync(new());
 
         Assert.Single(printModule.Invocations["printPage"]);
-        Assert.Equal("Imprimer / Exporter PDF", cut.Find("button.print").TextContent.Trim());
+        Assert.Contains("Imprimer / Exporter PDF", cut.Find("button.print").TextContent);
+    }
+
+    [Fact]
+    public void Document_affiche_reference_praticien_duree_et_pied_fictif()
+    {
+        var cut = RenderFarm();
+
+        Assert.Equal("SYN-2026-1008", cut.Find(".reference").TextContent);
+        Assert.Contains("Dre Camille Exemple", cut.Find("#party-vet").ParentElement!.TextContent);
+        Assert.Contains("Durée effective", cut.Find("#party-date").ParentElement!.TextContent);
+        Assert.Contains("Rapport finalisé · Conforme ordre vétérinaire", cut.Find(".banner").TextContent);
+        Assert.Contains("Données fictives", cut.Find(".doc-foot").TextContent);
+    }
+
+    [Fact]
+    public void Constats_sans_saisie_ont_un_repli_lisible_et_pas_de_barre()
+    {
+        var cut = RenderFarm();
+
+        Assert.Empty(cut.FindAll("progress"));
+        Assert.Contains("Aucun diagnostic saisi", cut.Find("#tile-repro").ParentElement!.TextContent);
+        Assert.Contains("Aucun résultat saisi", cut.Find("#tile-mammary").ParentElement!.TextContent);
+    }
+
+    [Fact]
+    public void Diagnostics_saisis_donnent_un_taux_et_une_barre_de_progression()
+    {
+        var cowId = DailyActions.Compute(data.Cows, Today).Items.First(item => item.Motives[0].Action == RegieAction.PregnancyCheck).Cow.Id;
+        var record = CowVisitRecord.Empty(data.Visits[0].Id, cowId).WithResult(RegieAction.PregnancyCheck, ResultOutcome.Positive, At);
+        module.Setup<IReadOnlyList<CowVisitRecord>>("getVisitRecords", data.Visits[0].Id).SetResult([record]);
+
+        var cut = RenderFarm();
+
+        Assert.Equal("100", cut.Find("progress").GetAttribute("value"));
+        Assert.Contains("100 %", cut.Find("#tile-repro").ParentElement!.TextContent);
+    }
+
+    [Fact]
+    public void Photos_et_signatures_fictives_sont_signalees_et_l_empreinte_est_affichee()
+    {
+        var cut = RenderFarm();
+
+        Assert.Equal(2, cut.FindAll(".photo .photo-tag").Count);
+        Assert.All(cut.FindAll(".photo-tag"), tag => Assert.Equal("Photo fictive", tag.TextContent));
+        Assert.Equal(2, cut.FindAll(".signature").Count);
+        Assert.Contains("Validé hors-ligne à 07:30", cut.Find(".validated").TextContent);
+        Assert.Matches("^[0-9a-f]{64}$", cut.Find(".hash-full").TextContent);
+        Assert.Contains("…", cut.Find(".hash-short").TextContent);
+    }
+
+    [Fact]
+    public void Historique_propose_la_visite_du_jour_et_trois_visites_passees_filtrables()
+    {
+        var cut = RenderFarm();
+
+        Assert.Equal(4, cut.FindAll(".history-list .visit-card").Count);
+        Assert.Contains("Sélectionné", cut.Find(".visit-card--current").TextContent);
+
+        cut.Find("input.search").Input("zzz-introuvable");
+
+        Assert.Empty(cut.FindAll(".visit-card"));
+        Assert.Contains("Aucune synthèse ne correspond", cut.Find(".history [role=status]").TextContent);
+    }
+
+    [Fact]
+    public async Task Boutons_d_envoi_sont_simules_sans_navigation()
+    {
+        var cut = RenderFarm();
+
+        await cut.FindAll("button.action").Single(button => button.TextContent.Trim() == "Télétransmettre").ClickAsync(new());
+
+        Assert.Equal("Démonstration : fonction simulée, aucune donnée envoyée.", cut.Find(".simulated").TextContent);
+        Assert.Empty(printModule.Invocations["printPage"]);
     }
 
     [Fact]

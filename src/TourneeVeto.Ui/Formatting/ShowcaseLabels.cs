@@ -34,6 +34,13 @@ public static class ShowcaseLabels
     /// <summary>Date courte sans l'année : « jeudi 8 octobre ».</summary>
     public static string DayMonth(DateOnly date) => date.ToString("dddd d MMMM", FrenchCanada);
 
+    /// <summary>Mois et année avec majuscule : « Octobre 2026 ».</summary>
+    public static string MonthYear(DateOnly date)
+    {
+        var label = date.ToString("MMMM yyyy", FrenchCanada);
+        return label.Length == 0 ? label : char.ToUpper(label[0], FrenchCanada) + label[1..];
+    }
+
     /// <summary>Âge à la française : « 4 ans 8 m. », « 7 m. » ou « 12 j » pour un veau.</summary>
     public static string Age(DateOnly birth, DateOnly today)
     {

@@ -60,7 +60,7 @@ public class ParcoursTests : E2ETest
         await AnswerAsync("Les animaux qui reviennent d'une exposition ou d'une pension sont-ils isolés ?", "Partiel");
 
         // Poids 3 + 2 + 2 : Non (0) + Oui (2) + Partiel (1) = 3/7, soit 43 %, avec un point critique à Non : risque élevé.
-        await Assertions.Expect(Page.Locator(".section-tab").First).ToContainTextAsync("Risque élevé · 43/100");
+        await Assertions.Expect(Page.Locator(".section-tab").First).ToContainTextAsync("43 % · Point de vigilance");
         var priorities = Page.GetByRole(AriaRole.Region, new() { Name = "Pratiques prioritaires" });
         await Assertions.Expect(priorities.GetByRole(AriaRole.Listitem)).ToHaveCountAsync(2);
         await Assertions.Expect(priorities.GetByRole(AriaRole.Listitem).First).ToContainTextAsync("Les animaux achetés sont-ils isolés");

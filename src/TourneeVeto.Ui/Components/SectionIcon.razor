@@ -1,0 +1,30 @@
+@* Pictogramme décoratif d'une rubrique du bilan de biosécurité (SVG local, masqué aux lecteurs d'écran). *@
+<svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    @switch (Kind)
+    {
+        case "cart":
+            <path d="M3 4h2l2.2 10h10.6L20 7H6.2M9 19.5h.01M17 19.5h.01" />
+            break;
+        case "door":
+            <path d="M5 21V4h9l5 2v15M5 21h14M14 4v17M11 12.5h.01" />
+            break;
+        case "calf":
+            <path d="M4 14c0-3 2-5 5-5h6c3 0 5 2 5 5v3h-3v3h-2v-3H9v3H7v-3H4zM8 9 6 5M16 9l2-4M9 13h.01M15 13h.01" />
+            break;
+        case "bug":
+            <path d="M9 8a3 3 0 0 1 6 0v8a3 3 0 0 1-6 0zM3 10l4 2M21 10l-4 2M3 18l4-2M21 18l-4-2M10 3 8 1M14 3l2-2" />
+            break;
+        case "drop":
+            <path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.500 6-11 6-11zM9.500 15a2.500 2.500 0 0 0 2.500 2.500" />
+            break;
+        default:
+            <path d="M12 3 4 6v5c0 5 3.400 8.500 8 10 4.600-1.500 8-5 8-10V6zM9 12l2.200 2.200L15.500 10" />
+            break;
+    }
+</svg>
+
+@code {
+    /// <summary>Clé du pictogramme (cart, door, calf, bug, drop ; shield par défaut).</summary>
+    [Parameter, EditorRequired]
+    public string Kind { get; set; } = "shield";
+}

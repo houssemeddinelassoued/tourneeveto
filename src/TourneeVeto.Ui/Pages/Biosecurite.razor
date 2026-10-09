@@ -1,6 +1,7 @@
 @page "/biosecurite"
 @page "/biosecurite/{FarmId}"
 @using TourneeVeto.Domain.Biosecurity
+@using TourneeVeto.Domain.Showcase
 @using TourneeVeto.Domain.Visits
 @using TourneeVeto.Ui.Biosecurity
 @using TourneeVeto.Ui.Data
@@ -10,19 +11,43 @@
 @inject TimeProvider TimeProvider
 
 @* Bilan de biosécurité (maquettes design/stitch/*/biosecurite.png). Scores, niveaux de risque et pratiques
-   prioritaires viennent de BiosecurityScore (TourneeVeto.Domain) ; la page ne fait qu'afficher et recueillir les réponses. *@
+   prioritaires viennent de BiosecurityScore, états et textes fictifs de BiosecurityAudit (TourneeVeto.Domain) ;
+   la page ne fait qu'afficher et recueillir les réponses. « Exporter audit » est simulé. *@
 
 <PageTitle>Bilan biosécurité — TournéeVéto</PageTitle>
 
 <section class="root" aria-labelledby="bio-title">
     <header class="header">
-        <p class="eyebrow">Bilan de biosécurité</p>
+        <p class="chips">
+            @if (farm is not null)
+            {
+                <span class="chip chip--audit desktop-only">Audit réglementaire @today.Year</span>
+                <span class="chip chip--muted desktop-only">Agrément N° @BiosecurityAudit.ApprovalNumber(farm.Id, today) (fictif)</span>
+            }
+            <span class="chip chip--muted">Données fictives</span>
+        </p>
+        <p class="eyebrow mobile-only">Bilan de biosécurité</p>
         <h1 class="title" id="bio-title">Bilan biosécurité</h1>
         @if (farm is not null)
         {
-            <p class="farm">@farm.Name · @farm.Municipality</p>
+            <p class="farm">@farm.Name · @farm.Municipality<span class="desktop-only"> · Campagne Biosécurité Bovine</span></p>
+            @if (profile is not null)
+            {
+                <p class="meta desktop-only">
+                    <span>Éleveur référent : <strong>@profile.Farmer</strong></span>
+                    <span>Auditeur : <strong>@Vet.Name</strong></span>
+                    <span>Visite du @ShowcaseLabels.LongDate(today)</span>
+                </p>
+            }
         }
         <p class="notice">Questionnaire simplifié et fictif : il ne remplace pas l'évaluation proAction.</p>
+        @if (farm is not null)
+        {
+            <div class="actions desktop-only">
+                <button type="button" class="action action--secondary" @onclick="Simulate">Exporter audit</button>
+                <a class="action action--primary" href="@($"rapport/{FarmId}")">Rapport consolidé</a>
+            </div>
+        }
     </header>
 
     @if (string.IsNullOrEmpty(FarmId))
@@ -48,90 +73,209 @@
         {
             <p class="error" role="alert">@saveError</p>
         }
+        else if (message is not null)
+        {
+            <p class="saved" role="status">@message</p>
+        }
         else if (saveStatus is not null)
         {
             <p class="saved" role="status">@saveStatus</p>
         }
 
         var overall = Result;
+        var summary = BiosecurityAudit.Summarize(Questions, answers, overall);
+        var statuses = overall.Sections.Select(section => BiosecurityAudit.StatusOf(Questions, answers, section)).ToList();
+        var tone = BiosecurityLabels.Tone(overall.OverallLevel);
         <div class="side">
             <section class="global-panel" aria-labelledby="global-title">
-                <h2 class="global-title" id="global-title">Indice global</h2>
-                @if (overall.OverallScore is int globalScore)
-                {
-                    <p class="global-value global-value--@BiosecurityLabels.Tone(overall.OverallLevel)">@globalScore %</p>
-                }
-                <p class="global-level">@BiosecurityLabels.Risk(overall.OverallLevel)</p>
+                <div class="global-head">
+                    <p class="global-kicker mobile-only">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6zM9 12h6M12 9v6" /></svg>
+                        Audit sanitaire rural
+                    </p>
+                    <span class="chip chip--muted mobile-only">Campagne @today.Year</span>
+                    <h2 class="global-title desktop-only" id="global-title">Indice global exploitation</h2>
+                    <span class="chip chip--ok desktop-only">Charte fictive</span>
+                </div>
+                <p class="global-label mobile-only">Score global d'exploitation</p>
+                <div class="global-body">
+                    <svg class="ring" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+                        <circle class="ring-track" cx="50" cy="50" r="42" fill="none" stroke-width="9" />
+                        @if (overall.OverallScore is not null)
+                        {
+                            <circle class="ring-value ring-value--@tone" cx="50" cy="50" r="42" fill="none" stroke-width="9" stroke-linecap="round"
+                                    stroke-dasharray="@BiosecurityLabels.RingDash(overall.OverallScore)" transform="rotate(-90 50 50)" />
+                        }
+                    </svg>
+                    @if (overall.OverallScore is int globalScore)
+                    {
+                        <p class="global-value global-value--@tone">@globalScore %</p>
+                    }
+                    <p class="global-level global-level--@tone">@BiosecurityLabels.Verdict(overall.OverallLevel)</p>
+                    <p class="global-text">@GlobalText(overall.OverallLevel)</p>
+                </div>
                 <p class="global-answered">@overall.AnsweredCount / @overall.QuestionCount questions renseignées</p>
+                <p class="threshold desktop-only">Seuil de sécurité (≥ @BiosecurityAudit.SafetyThreshold %) @(summary.SafetyThresholdReached ? "atteint" : "non atteint")</p>
+                <p class="stats desktop-only">
+                    <span>Points validés : <strong>@summary.ValidatedPoints / @summary.TotalPoints</strong></span>
+                    <span>Alertes critiques : <strong class="@(summary.CriticalAlerts > 0 ? "stat-alert" : null)">@summary.CriticalAlerts</strong></span>
+                </p>
             </section>
 
-            <div class="sections" role="group" aria-label="Rubriques du bilan">
-                @foreach (var (section, index) in Result.Sections.Select((section, index) => (section, index)))
-                {
-                    <button type="button" class="section-tab section-tab--@Tone(section.Level)" aria-pressed="@(index == current ? "true" : "false")" @onclick="() => current = index">
-                        <span class="section-tab-name">@(index + 1). @section.Section</span>
-                        <span class="section-tab-score">@BiosecurityLabels.Score(section)</span>
-                    </button>
-                }
-            </div>
+            <section class="sections-panel" aria-labelledby="sections-title">
+                <div class="sections-head">
+                    <h2 class="sections-title" id="sections-title"><span class="mobile-only">Sections du bilan</span><span class="desktop-only">Sections d'audit</span></h2>
+                    <span class="sections-count">
+                        <span class="mobile-only">Étape @(current + 1) sur @overall.Sections.Count</span>
+                        <span class="desktop-only">@summary.SectionsEntered / @overall.Sections.Count renseignées</span>
+                    </span>
+                </div>
+                <div class="sections" role="group" aria-label="Rubriques du bilan">
+                    @foreach (var (section, index) in overall.Sections.Select((section, index) => (section, index)))
+                    {
+                        var status = statuses[index];
+                        <button type="button" class="section-tab section-tab--@BiosecurityLabels.StatusTone(status)" aria-pressed="@(index == current ? "true" : "false")" @onclick="() => current = index">
+                            <span class="tab-number" aria-hidden="true">@(index + 1)</span>
+                            <span class="tab-body">
+                                <span class="section-tab-name">@section.Section</span>
+                                <span class="section-tab-score">@BiosecurityLabels.StatusScore(section, status)</span>
+                            </span>
+                        </button>
+                    }
+                </div>
+            </section>
+
+            @if (perimeter is not null)
+            {
+            <figure class="perimeter desktop-only">
+                <svg viewBox="0 0 200 100" role="img" aria-label="Illustration fictive du périmètre extérieur : bâtiment, sas et barrière">
+                    <rect class="p-sky" x="0" y="0" width="200" height="62" />
+                    <rect class="p-grass" x="0" y="62" width="200" height="38" />
+                    <path class="p-road" d="M0 100 L70 72 H130 L200 100 Z" />
+                    <rect class="p-wall" x="48" y="34" width="104" height="38" />
+                    <path class="p-roof" d="M40 36 L100 14 L160 36 Z" />
+                    <rect class="p-door" x="88" y="50" width="24" height="22" />
+                    <rect class="p-gate" x="20" y="64" width="40" height="5" />
+                    <rect class="p-gate" x="140" y="64" width="40" height="5" />
+                    <path class="p-fence" d="M20 60v14M32 60v14M44 60v14M56 60v14M144 60v14M156 60v14M168 60v14M180 60v14" />
+                </svg>
+                <span class="photo-tag">Photo fictive</span>
+                <figcaption class="perimeter-caption">
+                    <span class="perimeter-title">@perimeter.Heading</span>
+                    <span class="perimeter-place">@perimeter.Place</span>
+                    <span class="perimeter-date">Dernier passage désinfection tracteurs : @ShowcaseLabels.DayMonth(perimeter.LastDisinfection)</span>
+                </figcaption>
+            </figure>
+            }
         </div>
 
-        @if (Result.Sections.ElementAtOrDefault(current) is { } shown)
+        @if (overall.Sections.ElementAtOrDefault(current) is { } shown)
         {
             var questions = Questions.Where(question => question.Section == shown.Section).ToList();
+            var info = BiosecurityAudit.Section(shown.Section);
+            var shownStatus = statuses[current];
+            var practice = overall.PriorityPractices.FirstOrDefault(candidate => candidate.Section == shown.Section) ?? overall.PriorityPractices.FirstOrDefault();
             <section class="section" aria-labelledby="section-title">
                 <header class="section-header">
+                    <span class="section-badge"><SectionIcon Kind="@info.Icon" /></span>
+                    <p class="section-eyebrow desktop-only"><span class="chip chip--audit">Section @((current + 1).ToString("D2"))</span> Grille d'inspection sanitaire</p>
                     <h2 class="section-title" id="section-title">@(current + 1). @shown.Section</h2>
-                    <p class="section-meta">@questions.Count questions · <span class="level level--@Tone(shown.Level)">@BiosecurityLabels.Score(shown)</span></p>
+                    <p class="section-meta">@ShowcaseLabels.Count(questions.Count, "Question", "Questions") · <span class="level level--@Tone(shown.Level)">@BiosecurityLabels.Score(shown)</span></p>
+                    <p class="section-description desktop-only">@info.Description</p>
+                    <p class="section-score desktop-only">
+                        <span class="section-score-label">Score section</span>
+                        <span class="section-score-value section-score-value--@BiosecurityLabels.StatusTone(shownStatus)">@(shown.Score is int sectionScore ? $"{sectionScore} %" : "—")</span>
+                    </p>
                 </header>
 
                 <ol class="questions" role="list">
                     @foreach (var (question, number) in questions.Select((question, index) => (question, index + 1)))
                     {
-                        <li class="question" @key="question.Id">
-                            <fieldset class="answers">
+                        var criterion = BiosecurityAudit.Criterion(question.Id);
+                        var selected = Selected(question);
+                        <li class="question @(selected == Answer.No ? "question--no" : null)" @key="question.Id">
+                            <p class="criterion desktop-only">
+                                <span>Critère @(current + 1).@number</span>
+                                @if (selected == Answer.No)
+                                {
+                                    <span class="regulatory">Alerte réglementaire</span>
+                                }
+                            </p>
+                            <fieldset class="answers-set">
                                 <legend class="question-text">
-                                    <span class="number" aria-hidden="true">@number</span>
+                                    <span class="number mobile-only" aria-hidden="true">@number</span>
                                     <span>@question.Text</span>
                                     @if (question.IsCritical)
                                     {
                                         <span class="critical">Point critique</span>
                                     }
                                 </legend>
-                                @foreach (var answer in BiosecurityLabels.Answers)
+                                <p class="description desktop-only">@criterion.Description</p>
+                                <div class="answers">
+                                    @foreach (var answer in BiosecurityLabels.Answers)
+                                    {
+                                        <label class="answer answer--@answer.ToString().ToLowerInvariant()">
+                                            <input type="radio" name="@($"q-{question.Id}")" checked="@(selected == answer)" @onchange="() => Choose(question, answer)" />
+                                            <span aria-hidden="true">@BiosecurityLabels.ShortAnswerText(answer)</span>
+                                            <span class="visually-hidden">@BiosecurityLabels.AnswerText(answer)</span>
+                                        </label>
+                                    }
+                                </div>
+                                @if (selected == Answer.Partial)
                                 {
-                                    <label class="answer answer--@answer.ToString().ToLowerInvariant()">
-                                        <input type="radio" name="@($"q-{question.Id}")" checked="@(Selected(question) == answer)" @onchange="() => Choose(question, answer)" />
-                                        <span aria-hidden="true">@BiosecurityLabels.ShortAnswerText(answer)</span>
-                                        <span class="visually-hidden">@BiosecurityLabels.AnswerText(answer)</span>
-                                    </label>
+                                    <p class="observation desktop-only">Observation : @criterion.PartialObservation</p>
+                                }
+                                else if (selected == Answer.No)
+                                {
+                                    <p class="observation observation--no desktop-only">Constat clinique : @criterion.ClinicalFinding</p>
                                 }
                             </fieldset>
                         </li>
                     }
                 </ol>
 
-                @if (current < Result.Sections.Count - 1)
-                {
-                    <button type="button" class="next" @onclick="() => current++">Rubrique suivante : @Result.Sections[current + 1].Section</button>
-                }
+                <div class="closing">
+                    @if (practice is not null)
+                    {
+                        <aside class="recommendation desktop-only" aria-labelledby="reco-title">
+                            <p class="recommendation-kicker" id="reco-title">Préconisation automatisée générée (moteur véto)</p>
+                            <p class="recommendation-title">@practice.Text</p>
+                            <p class="recommendation-text">@BiosecurityAudit.Criterion(practice.Id).Recommendation</p>
+                        </aside>
+                    }
+                    <div class="footer">
+                        <p class="sync">
+                            <span class="mobile-only">Données pré-enregistrées en local (Hors-ligne)</span>
+                            <span class="desktop-only">Modifications locales synchronisées</span>
+                        </p>
+                        <button type="button" class="footer-button mobile-only" @onclick="Recalculate">Recalculer</button>
+                        <button type="button" class="footer-button desktop-only" @onclick="SaveSectionAsync">Enregistrer la section</button>
+                        @if (current < overall.Sections.Count - 1)
+                        {
+                            <button type="button" class="next" @onclick="() => current++">
+                                <span class="mobile-only">Suivant : @overall.Sections[current + 1].Section</span>
+                                <span class="desktop-only">Section suivante (@overall.Sections[current + 1].Section)</span>
+                            </button>
+                        }
+                    </div>
+                </div>
             </section>
         }
 
         <section class="priorities" aria-labelledby="priorities-title">
             <h2 class="section-title" id="priorities-title">Pratiques prioritaires</h2>
-            @if (Result.PriorityPractices.Count == 0)
+            @if (overall.PriorityPractices.Count == 0)
             {
                 <p class="status">Aucune pratique à améliorer pour l'instant : répondez aux questions de chaque rubrique.</p>
             }
             else
             {
                 <ol class="priority-list">
-                    @foreach (var practice in Result.PriorityPractices)
+                    @foreach (var priority in overall.PriorityPractices)
                     {
                         <li>
-                            <span class="priority-text">@practice.Text</span>
-                            <span class="priority-meta">@practice.Section · @BiosecurityLabels.AnswerText(answers[practice.Id])@(practice.IsCritical ? " · Point critique" : "")</span>
+                            <span class="priority-text">@priority.Text</span>
+                            <span class="priority-meta">@priority.Section · @BiosecurityLabels.AnswerText(answers[priority.Id])@(priority.IsCritical ? " · Point critique" : "")</span>
                         </li>
                     }
                 </ol>
@@ -151,6 +295,10 @@
     private Visit? visit;
     private string? saveStatus;
     private string? saveError;
+    private string? message;
+    private DateOnly today;
+    private FarmShowcase? profile;
+    private PerimeterShowcase? perimeter;
 
     /// <summary>Identifiant de la ferme visitée ; vide sur /biosecurite, qui propose les fermes du jour.</summary>
     [Parameter]
@@ -158,9 +306,12 @@
 
     private BiosecurityResult Result => BiosecurityScore.Compute(Questions, answers);
 
+    private VeterinarianProfile Vet => ShowcaseBuilder.DemoVeterinarian;
+
     protected override async Task OnParametersSetAsync()
     {
         (farm, error, loaded, current, visit, saveStatus, saveError) = (null, null, false, 0, null, null, null);
+        (message, profile, perimeter) = (null, null, null);
         answers.Clear();
         if (string.IsNullOrEmpty(FarmId))
         {
@@ -170,13 +321,17 @@
         try
         {
             await Seeder.EnsureSeededAsync();
-            farm = (await Repository.GetFarmsAsync()).FirstOrDefault(candidate => candidate.Id == FarmId);
+            var farms = await Repository.GetFarmsAsync();
+            farm = farms.FirstOrDefault(candidate => candidate.Id == FarmId);
             error = farm is null ? "Ferme introuvable." : null;
+            today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
+            perimeter = BiosecurityAudit.Perimeter(today);
             if (farm is not null)
             {
                 // Bilan rattaché à la visite du jour ; reprise des réponses déjà enregistrées (story 8.1).
-                var today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
-                visit = (await Repository.GetVisitsByDateAsync(today)).FirstOrDefault(candidate => candidate.FarmId == FarmId);
+                var todaysVisits = await Repository.GetVisitsByDateAsync(today);
+                visit = todaysVisits.FirstOrDefault(candidate => candidate.FarmId == FarmId);
+                profile = ShowcaseBuilder.ProfileOf(farms, todaysVisits, FarmId, today);
                 if (visit is not null && await Repository.GetBiosecurityAsync(visit.Id) is { } saved)
                 {
                     foreach (var (questionId, answer) in saved.Answers)
@@ -196,10 +351,27 @@
 
     private Answer? Selected(BiosecurityQuestion question) => answers.TryGetValue(question.Id, out var answer) ? answer : null;
 
+    private void Simulate() => message = "Démonstration : fonction simulée, aucune donnée envoyée.";
+
+    private void Recalculate() => (message, saveStatus) = ("Bilan recalculé à partir des réponses saisies.", null);
+
+    // Les réponses sont déjà enregistrées une à une ; ce bouton réécrit simplement l'ensemble.
+    private async Task SaveSectionAsync()
+    {
+        message = null;
+        await PersistAsync();
+    }
+
     // Enregistrement automatique à chaque réponse ; en cas d'échec, la réponse reste affichée.
     private async Task Choose(BiosecurityQuestion question, Answer answer)
     {
         answers[question.Id] = answer;
+        message = null;
+        await PersistAsync();
+    }
+
+    private async Task PersistAsync()
+    {
         if (visit is null)
         {
             return;
@@ -216,6 +388,14 @@
             (saveError, saveStatus) = (exception.Message, null);
         }
     }
+
+    private static string GlobalText(RiskLevel level) => level switch
+    {
+        RiskLevel.Low => "Conformité à la charte sanitaire fictive : risque faible.",
+        RiskLevel.Moderate => "Conformité partielle à la charte sanitaire fictive : risque modéré.",
+        RiskLevel.High => "Non-conformité à traiter en priorité : risque élevé.",
+        _ => "Aucune réponse évaluable pour l'instant.",
+    };
 
     private static string Tone(RiskLevel level) => BiosecurityLabels.Tone(level);
 }
