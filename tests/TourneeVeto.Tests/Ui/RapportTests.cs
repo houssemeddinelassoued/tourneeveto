@@ -36,6 +36,8 @@ public class RapportTests : BunitContext, IAsyncLifetime
         module.Setup<IReadOnlyList<Cow>>("getCowsByFarm", "F001").SetResult(data.Cows);
         module.Setup<IReadOnlyList<CowVisitRecord>>("getVisitRecords", _ => true).SetResult([]);
         module.Setup<BiosecurityAnswers?>("getBiosecurity", _ => true).SetResult(null);
+        module.Setup<VisitRecommendations?>("getRecommendations", _ => true).SetResult(null);
+        module.SetupVoid("putRecommendations", _ => true).SetVoidResult();
         printModule = JSInterop.SetupModule(ReportPrinter.ModulePath);
         printModule.SetupVoid("printPage").SetVoidResult();
     }

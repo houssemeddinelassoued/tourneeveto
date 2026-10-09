@@ -261,8 +261,20 @@
                     }
                 </section>
 
+                <section class="block block--priority" id="recommandations" aria-labelledby="reco-title">
+                    <h2 class="block-title" id="reco-title"><span class="step" aria-hidden="true">4</span>Recommandations au producteur</h2>
+                    @if (hasVisit)
+                    {
+                        <RecommendationsEditor VisitId="visitId" />
+                    }
+                    else
+                    {
+                        <p class="status">Aucune visite prévue aujourd'hui : les recommandations ne peuvent pas être rédigées.</p>
+                    }
+                </section>
+
                 <section class="block" aria-labelledby="photos-title">
-                    <h2 class="block-title" id="photos-title"><span class="step" aria-hidden="true">4</span><span class="mobile-only">Photos d'observation terrain</span><span class="desktop-only">Clichés photographiques terrain horodatés</span></h2>
+                    <h2 class="block-title" id="photos-title"><span class="step" aria-hidden="true">5</span><span class="mobile-only">Photos d'observation terrain</span><span class="desktop-only">Clichés photographiques terrain horodatés</span></h2>
                     <div class="photos">
                         @foreach (var photo in showcase.Photos)
                         {
@@ -303,7 +315,7 @@
                 </section>
 
                 <section class="block" aria-labelledby="sign-title">
-                    <h2 class="block-title" id="sign-title"><span class="step" aria-hidden="true">5</span><span class="mobile-only">Validation &amp; émargements</span><span class="desktop-only">Validation légale &amp; émargements cryptographiques</span></h2>
+                    <h2 class="block-title" id="sign-title"><span class="step" aria-hidden="true">6</span><span class="mobile-only">Validation &amp; émargements</span><span class="desktop-only">Validation légale &amp; émargements cryptographiques</span></h2>
                     <p class="validated">Validé hors-ligne à @ReportLabels.Clock(showcase.ValidatedAt)</p>
                     <div class="signatures">
                         @foreach (var (signature, index) in showcase.Signatures.Select((signature, index) => (signature, index)))
@@ -398,6 +410,7 @@
     private string? error;
     private string? printError;
     private bool hasVisit;
+    private Guid visitId;
     private DateOnly today;
     private FarmShowcase? profile;
     private ReportShowcase? showcase;
@@ -432,7 +445,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        (farm, report, error, printError, hasVisit) = (null, null, null, null, false);
+        (farm, report, error, printError, hasVisit, visitId) = (null, null, null, null, false, Guid.Empty);
         (profile, showcase, message) = (null, null, null);
         if (string.IsNullOrEmpty(FarmId))
         {
@@ -456,6 +469,7 @@
             var todaysVisits = await Repository.GetVisitsByDateAsync(today);
             var visit = todaysVisits.FirstOrDefault(candidate => candidate.FarmId == FarmId);
             hasVisit = visit is not null;
+            visitId = visit?.Id ?? Guid.Empty;
             IReadOnlyList<CowVisitRecord> records = visit is null ? [] : await Repository.GetVisitRecordsAsync(visit.Id);
             BiosecurityResult? biosecurity = null;
             if (visit is not null && await Repository.GetBiosecurityAsync(visit.Id) is { } saved)

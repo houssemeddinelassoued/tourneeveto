@@ -86,6 +86,36 @@ public class ParcoursTests : E2ETest
         await Assertions.Expect(AnswerRadio(Quarantine, "Partiel")).ToBeCheckedAsync();
     }
 
+    [TheoryIfBaseUrl]
+    [MemberData(nameof(Viewports))]
+    public async Task Rediger_deux_recommandations_puis_les_retrouver_numerotees_apres_rechargement(int width, int height)
+    {
+        await StartAsync(width, height);
+        await NavLink("Rapport", "Rapports de visite").ClickAsync();
+        await Page.GetByRole(AriaRole.Link, new() { Name = "Ferme" }).First.ClickAsync();
+        var section = Page.GetByRole(AriaRole.Region, new() { Name = "Recommandations au producteur" });
+        await Assertions.Expect(section).ToBeVisibleAsync();
+
+        await section.GetByLabel("Nouvelle recommandation").FillAsync("Tarir 4521 et 4533 cette semaine\nDeuxième ligne : vêlage près de l'été");
+        await section.GetByRole(AriaRole.Button, new() { Name = "Ajouter" }).ClickAsync();
+        await Assertions.Expect(section.GetByRole(AriaRole.Status).Filter(new() { HasText = "Enregistré" })).ToBeVisibleAsync();
+        await section.GetByLabel("Nouvelle recommandation").FillAsync("Revoir 5006 dans 15 jours");
+        await section.GetByRole(AriaRole.Button, new() { Name = "Ajouter" }).ClickAsync();
+        await Assertions.Expect(section.GetByRole(AriaRole.Listitem)).ToHaveCountAsync(2);
+
+        // Rechargement : le lien profond est servi, on reste sur le rapport de la même ferme.
+        await Page.ReloadAsync();
+        await Assertions.Expect(Page).ToHaveTitleAsync("Rapport de visite — TournéeVéto");
+        var reloaded = Page.GetByRole(AriaRole.Region, new() { Name = "Recommandations au producteur" });
+        var items = reloaded.GetByRole(AriaRole.Listitem);
+        await Assertions.Expect(items).ToHaveCountAsync(2);
+        await Assertions.Expect(items.Nth(0)).ToContainTextAsync("01");
+        await Assertions.Expect(items.Nth(0)).ToContainTextAsync("Tarir 4521 et 4533 cette semaine");
+        await Assertions.Expect(items.Nth(0)).ToContainTextAsync("Deuxième ligne : vêlage près de l'été");
+        await Assertions.Expect(items.Nth(1)).ToContainTextAsync("02");
+        await Assertions.Expect(items.Nth(1)).ToContainTextAsync("Revoir 5006 dans 15 jours");
+    }
+
     private async Task OpenBiosecurityAsync()
     {
         await NavLink("Biosécurité", "Bilan biosécurité").ClickAsync();

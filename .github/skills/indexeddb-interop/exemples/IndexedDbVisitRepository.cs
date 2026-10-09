@@ -29,7 +29,7 @@ public interface IVisitRepository
 
     Task SaveVisitAsync(Visit visit, CancellationToken cancellationToken = default);
 
-    /// <summary>Supprime la visite et ses photos.</summary>
+    /// <summary>Supprime la visite, ses saisies, son bilan, ses recommandations et ses photos.</summary>
     Task DeleteVisitAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Cow>> GetCowsByFarmAsync(string farmId, CancellationToken cancellationToken = default);
@@ -50,6 +50,12 @@ public interface IVisitRepository
     Task<BiosecurityAnswers?> GetBiosecurityAsync(Guid visitId, CancellationToken cancellationToken = default);
 
     Task SaveBiosecurityAsync(BiosecurityAnswers answers, CancellationToken cancellationToken = default);
+
+    /// <summary>Recommandations de la visite ; <c>null</c> si aucune n'a encore été enregistrée.</summary>
+    Task<VisitRecommendations?> GetRecommendationsAsync(Guid visitId, CancellationToken cancellationToken = default);
+
+    /// <summary>Enregistre la liste complète des recommandations de la visite, en remplaçant la précédente.</summary>
+    Task SaveRecommendationsAsync(VisitRecommendations recommendations, CancellationToken cancellationToken = default);
 
     /// <summary>Redimensionne et stocke la photo choisie dans <paramref name="fileInput"/> ; <c>null</c> si aucun fichier.</summary>
     Task<Guid?> AddPhotoFromInputAsync(Guid visitId, ElementReference fileInput, CancellationToken cancellationToken = default);
@@ -124,6 +130,12 @@ public sealed class IndexedDbVisitRepository(IJSRuntime jsRuntime) : IVisitRepos
 
     public Task SaveBiosecurityAsync(BiosecurityAnswers answers, CancellationToken cancellationToken = default) =>
         InvokeVoidAsync("putBiosecurity", cancellationToken, answers);
+
+    public Task<VisitRecommendations?> GetRecommendationsAsync(Guid visitId, CancellationToken cancellationToken = default) =>
+        InvokeAsync<VisitRecommendations?>("getRecommendations", cancellationToken, visitId);
+
+    public Task SaveRecommendationsAsync(VisitRecommendations recommendations, CancellationToken cancellationToken = default) =>
+        InvokeVoidAsync("putRecommendations", cancellationToken, recommendations);
 
     public Task<Guid?> AddPhotoFromInputAsync(Guid visitId, ElementReference fileInput, CancellationToken cancellationToken = default) =>
         InvokeAsync<Guid?>("addPhotoFromInput", cancellationToken, visitId, fileInput);

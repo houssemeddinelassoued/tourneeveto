@@ -58,6 +58,12 @@ public sealed class IndexedDbVisitRepository(IJSRuntime jsRuntime) : IVisitRepos
     public Task SaveBiosecurityAsync(BiosecurityAnswers answers, CancellationToken cancellationToken = default) =>
         InvokeVoidAsync("putBiosecurity", cancellationToken, answers);
 
+    public Task<VisitRecommendations?> GetRecommendationsAsync(Guid visitId, CancellationToken cancellationToken = default) =>
+        InvokeAsync<VisitRecommendations?>("getRecommendations", cancellationToken, visitId);
+
+    public Task SaveRecommendationsAsync(VisitRecommendations recommendations, CancellationToken cancellationToken = default) =>
+        InvokeVoidAsync("putRecommendations", cancellationToken, recommendations);
+
     public Task<Guid?> AddPhotoFromInputAsync(Guid visitId, ElementReference fileInput, CancellationToken cancellationToken = default) =>
         InvokeAsync<Guid?>("addPhotoFromInput", cancellationToken, visitId, fileInput);
 

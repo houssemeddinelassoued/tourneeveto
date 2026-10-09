@@ -101,4 +101,65 @@ public class IndexedDbVisitRepositoryTests : BunitContext
 
         await Assert.ThrowsAsync<JSException>(() => repository.DeletePhotoAsync(Guid.NewGuid()));
     }
+
+    [Fact]
+    public async Task Lit_les_recommandations_de_la_visite()
+    {
+        var recommendations = SampleRecommendations();
+        var module = JSInterop.SetupModule(IndexedDbVisitRepository.ModulePath);
+        module.Setup<VisitRecommendations?>("getRecommendations", SampleVisit.Id).SetResult(recommendations);
+        await using var repository = new IndexedDbVisitRepository(JSInterop.JSRuntime);
+
+        Assert.Equal(recommendations, await repository.GetRecommendationsAsync(SampleVisit.Id));
+    }
+
+    [Fact]
+    public async Task Sans_recommandation_enregistree_la_lecture_renvoie_null()
+    {
+        var module = JSInterop.SetupModule(IndexedDbVisitRepository.ModulePath);
+        module.Setup<VisitRecommendations?>("getRecommendations", SampleVisit.Id).SetResult(null);
+        await using var repository = new IndexedDbVisitRepository(JSInterop.JSRuntime);
+
+        Assert.Null(await repository.GetRecommendationsAsync(SampleVisit.Id));
+    }
+
+    [Fact]
+    public async Task Enregistre_les_recommandations_en_un_seul_appel()
+    {
+        var recommendations = SampleRecommendations();
+        var module = JSInterop.SetupModule(IndexedDbVisitRepository.ModulePath);
+        module.SetupVoid("putRecommendations", _ => true).SetVoidResult();
+        await using var repository = new IndexedDbVisitRepository(JSInterop.JSRuntime);
+
+        await repository.SaveRecommendationsAsync(recommendations);
+
+        Assert.Equal([recommendations], Assert.Single(module.Invocations["putRecommendations"]).Arguments);
+    }
+
+    [Fact]
+    public async Task Ecriture_refusee_des_recommandations_devient_StorageUnavailableException()
+    {
+        var module = JSInterop.SetupModule(IndexedDbVisitRepository.ModulePath);
+        module.SetupVoid("putRecommendations", _ => true).SetException(new JSException("TOURNEEVETO_STORAGE:Quota:QuotaExceededError plein"));
+        await using var repository = new IndexedDbVisitRepository(JSInterop.JSRuntime);
+
+        var exception = await Assert.ThrowsAsync<StorageUnavailableException>(() => repository.SaveRecommendationsAsync(SampleRecommendations()));
+
+        Assert.Equal(StorageFailure.QuotaExceeded, exception.Failure);
+    }
+
+    [Fact]
+    public async Task Lecture_impossible_des_recommandations_devient_StorageUnavailableException()
+    {
+        var module = JSInterop.SetupModule(IndexedDbVisitRepository.ModulePath);
+        module.Setup<VisitRecommendations?>("getRecommendations", _ => true).SetException(new JSException("TOURNEEVETO_STORAGE:Unavailable:InvalidStateError"));
+        await using var repository = new IndexedDbVisitRepository(JSInterop.JSRuntime);
+
+        var exception = await Assert.ThrowsAsync<StorageUnavailableException>(() => repository.GetRecommendationsAsync(SampleVisit.Id));
+
+        Assert.Equal(StorageFailure.Unavailable, exception.Failure);
+    }
+
+    private static VisitRecommendations SampleRecommendations() =>
+        new(SampleVisit.Id, [new Recommendation(Guid.Parse("11111111-1111-1111-1111-111111111111"), "Tarir 4521\nsuite")], new DateTimeOffset(2026, 10, 8, 14, 30, 0, TimeSpan.Zero));
 }

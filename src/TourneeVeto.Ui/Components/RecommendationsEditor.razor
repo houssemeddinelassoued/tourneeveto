@@ -1,0 +1,259 @@
+@using TourneeVeto.Domain.Visits
+@using TourneeVeto.Ui.Data
+@inject IVisitRepository Repository
+@inject TimeProvider TimeProvider
+
+@* Recommandations au producteur (stories 9.1 et 9.2). Les règles (rognage, longueur, nombre, numérotation) viennent de
+   VisitRecommendations (TourneeVeto.Domain). Texte saisi : toujours rendu comme du texte Razor, retours à la ligne par CSS.
+   Enregistrement à chaque ajout, modification ou suppression ; en cas d'échec l'état affiché reste celui du stockage
+   et le texte saisi reste dans son champ. *@
+
+<div class="editor">
+    @if (loadError is not null)
+    {
+        <p class="error" role="alert">@loadError</p>
+    }
+    else if (recommendations is null)
+    {
+        <p class="status">Chargement des recommandations…</p>
+    }
+    else
+    {
+        @if (recommendations.Items.Count == 0)
+        {
+            <p class="empty">Aucune recommandation pour cette visite.</p>
+        }
+        else
+        {
+            <ol class="recommendation-list">
+                @foreach (var (number, item) in recommendations.Numbered())
+                {
+                    <li @key="item.Id">
+                        <span class="rank" aria-hidden="true">@number.ToString("D2")</span>
+                        @if (editingId == item.Id)
+                        {
+                            <div class="edit">
+                                <textarea class="field" aria-label="@($"Modifier la recommandation {number}")" maxlength="@VisitRecommendations.MaxTextLength" rows="3"
+                                          aria-describedby="edit-count" @ref="editField" @bind="editDraft" @bind:event="oninput"></textarea>
+                                <p class="count" id="edit-count" aria-live="polite">@Count(editDraft)</p>
+                                <div class="buttons">
+                                    <button type="button" class="button button--primary" @onclick="SaveEditAsync">Enregistrer</button>
+                                    <button type="button" class="button" @onclick="CancelEdit">Annuler</button>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="recommendation-text">@item.Text</span>
+                            <div class="buttons">
+                                <button type="button" class="button" aria-label="@($"Modifier la recommandation {number}")" @ref="editButtons[item.Id]" @onclick="() => StartEdit(item)">Modifier</button>
+                                <button type="button" class="button button--danger" aria-label="@($"Supprimer la recommandation {number}")" @ref="deleteButtons[item.Id]" @onclick="() => AskDelete(item.Id)">Supprimer</button>
+                            </div>
+                        }
+                        @if (deletingId == item.Id)
+                        {
+                            <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="@($"delete-title-{item.Id}")" @onkeydown="OnDialogKey">
+                                <p class="dialog-title" id="@($"delete-title-{item.Id}")">Supprimer la recommandation @number ?</p>
+                                <div class="buttons">
+                                    <button type="button" class="button button--danger confirm" @onclick="ConfirmDeleteAsync">Confirmer la suppression</button>
+                                    <button type="button" class="button cancel" @ref="cancelDelete" @onclick="CancelDelete">Annuler</button>
+                                </div>
+                            </div>
+                        }
+                    </li>
+                }
+            </ol>
+        }
+
+        <div class="new">
+            <label class="label" for="new-recommendation">Nouvelle recommandation</label>
+            <textarea class="field new-text" id="new-recommendation" maxlength="@VisitRecommendations.MaxTextLength" rows="3" aria-describedby="new-count" @ref="newField" @bind="draft" @bind:event="oninput"></textarea>
+            <p class="count" id="new-count" aria-live="polite">@Count(draft)</p>
+            <div class="buttons">
+                <button type="button" class="button button--primary" @onclick="AddAsync">Ajouter</button>
+            </div>
+        </div>
+
+        @if (hint is not null)
+        {
+            <p class="hint" role="status">@hint</p>
+        }
+
+        @if (saveError is not null)
+        {
+            <p class="error" role="alert">@saveError</p>
+        }
+        else if (saved)
+        {
+            <p class="saved" role="status">Enregistré</p>
+        }
+    }
+</div>
+
+@code {
+    private VisitRecommendations? recommendations;
+    private Guid loadedFor;
+    private string draft = string.Empty;
+    private string editDraft = string.Empty;
+    private Guid? editingId;
+    private Guid? deletingId;
+    private string? loadError;
+    private string? saveError;
+    private string? hint;
+    private bool saved;
+    private ElementReference editField;
+    private ElementReference cancelDelete;
+    private ElementReference newField;
+    private readonly Dictionary<Guid, ElementReference> editButtons = [];
+    private readonly Dictionary<Guid, ElementReference> deleteButtons = [];
+    private Func<ElementReference?>? pendingFocus;
+
+    private static string Count(string text) => $"{text.Length} / {VisitRecommendations.MaxTextLength} caractères";
+
+    // Focus géré sans interop propre : ElementReference.FocusAsync après le rendu qui a créé ou ré-affiché l'élément.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (pendingFocus is { } focus)
+        {
+            pendingFocus = null;
+            if (focus() is { } target)
+            {
+                await target.FocusAsync();
+            }
+        }
+    }
+
+    private void OnDialogKey(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            CancelDelete();
+        }
+    }
+
+    /// <summary>Visite du jour de l'élevage, dont on rédige les recommandations.</summary>
+    [Parameter, EditorRequired]
+    public Guid VisitId { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (recommendations is not null && loadedFor == VisitId)
+        {
+            return;
+        }
+
+        (recommendations, loadError, loadedFor) = (null, null, VisitId);
+        try
+        {
+            var loaded = await Repository.GetRecommendationsAsync(VisitId);
+            recommendations = loaded is null ? VisitRecommendations.Empty(VisitId, TimeProvider.GetLocalNow()) : VisitRecommendations.Sanitize(loaded);
+        }
+        catch (Exception exception) when (exception is StorageUnavailableException or System.Text.Json.JsonException)
+        {
+            loadError = "Lecture impossible : les recommandations n'ont pas pu être chargées.";
+        }
+    }
+
+    private async Task AddAsync()
+    {
+        if (recommendations is null)
+        {
+            return;
+        }
+
+        (hint, saved) = (null, false);
+        if (!recommendations.TryAdd(draft, Guid.NewGuid(), TimeProvider.GetLocalNow(), out var next))
+        {
+            hint = recommendations.IsFull()
+                ? $"Maximum de {VisitRecommendations.MaxItems} recommandations atteint."
+                : TextHint(draft, "ajouter");
+            return;
+        }
+
+        if (await PersistAsync(next))
+        {
+            draft = string.Empty;
+        }
+    }
+
+    private static string TextHint(string text, string action) =>
+        VisitRecommendations.IsTooLong(text)
+            ? $"{VisitRecommendations.MaxTextLength} caractères au plus."
+            : $"Saisissez une recommandation avant d'{action}.";
+
+    private void StartEdit(Recommendation item)
+    {
+        (editingId, editDraft, deletingId) = (item.Id, item.Text, null);
+        pendingFocus = () => editField;
+        (hint, saveError, saved) = (null, null, false);
+    }
+
+    private void CancelEdit()
+    {
+        var id = editingId;
+        (editingId, hint) = (null, null);
+        pendingFocus = () => id is { } key && editButtons.TryGetValue(key, out var button) ? button : null;
+    }
+
+    private async Task SaveEditAsync()
+    {
+        if (recommendations is null || editingId is not { } id)
+        {
+            return;
+        }
+
+        (hint, saved) = (null, false);
+        if (!recommendations.TryUpdate(id, editDraft, TimeProvider.GetLocalNow(), out var next))
+        {
+            hint = TextHint(editDraft, "enregistrer");
+            return;
+        }
+
+        if (await PersistAsync(next))
+        {
+            CancelEdit();
+        }
+    }
+
+    private void AskDelete(Guid id)
+    {
+        (deletingId, editingId) = (id, null);
+        pendingFocus = () => cancelDelete;
+        (hint, saveError, saved) = (null, null, false);
+    }
+
+    private void CancelDelete()
+    {
+        var id = deletingId;
+        deletingId = null;
+        pendingFocus = () => id is { } key && deleteButtons.TryGetValue(key, out var button) ? button : null;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (recommendations is null || deletingId is not { } id)
+        {
+            return;
+        }
+
+        deletingId = null;
+        pendingFocus = () => newField;
+        await PersistAsync(recommendations.Remove(id, TimeProvider.GetLocalNow()));
+    }
+
+    // Le nouvel état n'est affiché qu'une fois enregistré : en cas d'échec la liste reste celle du stockage.
+    private async Task<bool> PersistAsync(VisitRecommendations next)
+    {
+        try
+        {
+            await Repository.SaveRecommendationsAsync(next);
+            (recommendations, saveError, saved) = (next, null, true);
+            return true;
+        }
+        catch (StorageUnavailableException)
+        {
+            (saveError, saved) = ("Enregistrement impossible", false);
+            return false;
+        }
+    }
+}

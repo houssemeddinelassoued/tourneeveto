@@ -4,7 +4,7 @@
 // convertie en StorageUnavailableException côté C#.
 
 const DB_NAME = "tourneeveto";
-const DB_VERSION = 3; // À incrémenter à chaque changement de schéma, avec une nouvelle étape dans upgrade().
+const DB_VERSION = 4; // À incrémenter à chaque changement de schéma, avec une nouvelle étape dans upgrade().
 const MAX_PHOTO_SIZE = 1600;
 const ERROR_PREFIX = "TOURNEEVETO_STORAGE:";
 
@@ -43,6 +43,11 @@ function upgrade(db, oldVersion, transaction) {
         const records = db.createObjectStore("visitRecords", { keyPath: ["visitId", "cowId"] });
         records.createIndex("visitId", "visitId");
         db.createObjectStore("biosecurity", { keyPath: "visitId" });
+    }
+
+    if (oldVersion < 4) {
+        // Version 4 : recommandations de la visite, un enregistrement par visite (epic 9). Aucun store existant n'est touché.
+        db.createObjectStore("recommendations", { keyPath: "visitId" });
     }
 }
 
@@ -157,9 +162,10 @@ export function putVisit(visit) {
 }
 
 export function deleteVisit(id) {
-    return run(["visits", "photos", "visitRecords", "biosecurity"], "readwrite", (transaction) => {
+    return run(["visits", "photos", "visitRecords", "biosecurity", "recommendations"], "readwrite", (transaction) => {
         transaction.objectStore("visits").delete(id);
         transaction.objectStore("biosecurity").delete(id);
+        transaction.objectStore("recommendations").delete(id);
         for (const storeName of ["photos", "visitRecords"]) {
             const store = transaction.objectStore(storeName);
             const cursor = store.index("visitId").openKeyCursor(IDBKeyRange.only(id));
@@ -195,6 +201,21 @@ export function getBiosecurity(visitId) {
 export function putBiosecurity(answers) {
     return run("biosecurity", "readwrite", (transaction) => {
         transaction.objectStore("biosecurity").put(answers);
+    });
+}
+
+// --- Recommandations de la visite (une liste par visite) ---
+
+export function getRecommendations(visitId) {
+    return run("recommendations", "readonly", (transaction) => {
+        const request = transaction.objectStore("recommendations").get(visitId);
+        return () => request.result ?? null;
+    });
+}
+
+export function putRecommendations(recommendations) {
+    return run("recommendations", "readwrite", (transaction) => {
+        transaction.objectStore("recommendations").put(recommendations);
     });
 }
 
