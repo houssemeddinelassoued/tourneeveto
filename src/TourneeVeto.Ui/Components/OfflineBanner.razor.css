@@ -1,0 +1,52 @@
+.root {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    border-radius: var(--radius-xl);
+}
+
+.root--ok {
+    background: var(--color-info-surface);
+    color: var(--color-on-info-surface);
+}
+
+.root--warning {
+    background: var(--color-warning-surface);
+    color: var(--color-on-warning-surface);
+}
+
+.icon {
+    flex: none;
+    inline-size: 2rem;
+    block-size: 2rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.text {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    display: grid;
+    margin: 0;
+}
+
+.title {
+    font: var(--font-label-lg);
+}
+
+.detail {
+    font: var(--font-body-sm);
+}
+
+.pill {
+    flex: none;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-ok);
+    font: var(--font-label-md);
+}

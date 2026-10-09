@@ -1,7 +1,13 @@
+@using TourneeVeto.Domain.Showcase
+@using TourneeVeto.Ui.Data
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject NavigationManager Navigation
+@inject ShowcaseProvider Provider
 
-@* Structure des maquettes Stitch : barre du haut et onglets en bas (tablette, téléphone), barre latérale (poste ≥ 1024 px). *@
+@* Structure des maquettes Stitch.
+   < 1024 px : barre du haut (logo, état de connexion, élevage, avatar) et cinq onglets en bas.
+   ≥ 1024 px : barre latérale (logo, synchronisation, navigation, praticien) et barre du haut (secteur, recherche, cloche, avatar). *@
 <div class="shell">
     <a class="skip" href="@SkipTarget">Aller au contenu</a>
 
@@ -9,31 +15,145 @@
         <UpdateBanner />
     </div>
 
-    <header class="header">
+    <div class="sidebar">
+        <a class="side-brand" href="">
+            <span class="logo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M12 6v12M6 12h12" /></svg>
+            </span>
+            <span class="brand-text">
+                <span class="brand-name">TournéeVéto</span>
+                <span class="brand-tag">Poste clinique</span>
+            </span>
+        </a>
+
+        <div class="sync">
+            <ConnectionStatus Variant="card" />
+        </div>
+
+        <nav class="nav" aria-label="Navigation principale">
+            <AppNav />
+        </nav>
+
+        <div class="profile">
+            <span class="avatar" aria-hidden="true">@Vet.Initials</span>
+            <span class="profile-text">
+                <span class="profile-name">@Vet.Name</span>
+                <span class="profile-title">@Vet.Title</span>
+            </span>
+            <button type="button" class="icon-button" aria-label="Se déconnecter (démonstration)" @onclick="Simulate">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9" /></svg>
+            </button>
+        </div>
+    </div>
+
+    <header class="topbar">
         <a class="brand" href="">
             <span class="logo" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false"><path d="M12 6v12M6 12h12" /></svg>
             </span>
             <span class="brand-text">
                 <span class="brand-name">TournéeVéto</span>
-                <span class="brand-tag">Données fictives · règles simplifiées</span>
+                <span class="brand-tag">Données fictives</span>
             </span>
         </a>
-        <ConnectionStatus />
-    </header>
 
-    <nav class="nav" aria-label="Navigation principale">
-        <AppNav />
-    </nav>
+        <div class="mobile-only">
+            <ConnectionStatus Variant="pill" />
+        </div>
+        <div class="mobile-only">
+            <FarmSelector Farms="Farms" />
+        </div>
+
+        <p class="chip chip--sector desk-only">Secteur : @Vet.Sector</p>
+        <p class="chip chip--mode desk-only">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 11a3.5 3.5 0 0 0 1 7z" /></svg>
+            Mode poste clinique actif
+        </p>
+        <p class="chip chip--fictive desk-only">Données fictives</p>
+
+        <form class="search desk-only" role="search" @onsubmit="SearchAsync">
+            <label class="sr" for="global-search">Rechercher un N° d'identification ou un élevage</label>
+            <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6" /><path d="M16 16l4 4" /></svg>
+            <input id="global-search" class="search-input" type="search" autocomplete="off"
+                   placeholder="N° identification, élevage…" @bind="query" @bind:event="oninput" />
+        </form>
+
+        <button type="button" class="icon-button desk-only" aria-label="Notifications (démonstration)" @onclick="Simulate">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15zM10 21h4" /></svg>
+        </button>
+        <button type="button" class="avatar-button" aria-label="Profil du praticien : @Vet.Name (démonstration)" @onclick="Simulate">
+            <span aria-hidden="true">@Vet.Initials</span>
+        </button>
+    </header>
 
     <main class="main" id="contenu" tabindex="-1">
         <div class="content">
+            @if (notice is not null)
+            {
+                <p class="notice" role="status">@notice</p>
+            }
             @Body
         </div>
     </main>
 </div>
 
 @code {
+    private ShowcaseSnapshot? snapshot;
+    private string query = string.Empty;
+    private string? notice;
+
     // Lien vers l'ancre de la page courante : un simple « #contenu » serait résolu par rapport au base href.
     private string SkipTarget => $"{Navigation.Uri.Split('#')[0]}#contenu";
+
+    private VeterinarianProfile Vet => snapshot?.Day.Veterinarian ?? ShowcaseBuilder.DemoVeterinarian;
+
+    private IReadOnlyList<TourneeVeto.Domain.Visits.Farm> Farms => snapshot is null
+        ? []
+        : [.. snapshot.Day.Farms.Select(stop => snapshot.Farms.First(farm => farm.Id == stop.FarmId))];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        try
+        {
+            snapshot = await Provider.LoadAsync();
+        }
+        catch (StorageUnavailableException)
+        {
+            // Le stockage indisponible est signalé par chaque page ; la coque garde le profil par défaut.
+            snapshot = null;
+        }
+    }
+
+    // La recherche mène à la grille de régie : un élevage ouvre sa grille, un N° de vache la filtre.
+    private async Task SearchAsync()
+    {
+        try
+        {
+            var fresh = await Provider.LoadAsync();
+            var (_, currentFarm) = Components.FarmRoute.Parse(Navigation.ToBaseRelativePath(Navigation.Uri));
+            var target = SearchTarget.Resolve(query, fresh.Farms.Where(farm => fresh.Day.Farms.Any(stop => stop.FarmId == farm.Id)).ToList(), fresh.Cows, currentFarm);
+            if (target.FarmId.Length == 0)
+            {
+                return;
+            }
+
+            var suffix = target.Query is null ? string.Empty : $"?q={Uri.EscapeDataString(target.Query)}";
+            Navigation.NavigateTo($"regie/{target.FarmId}{suffix}");
+        }
+        catch (StorageUnavailableException exception)
+        {
+            notice = exception.Message;
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)
+    {
+        notice = null;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+
+    private void Simulate() => notice = "Démonstration : fonction simulée, aucune donnée envoyée.";
 }

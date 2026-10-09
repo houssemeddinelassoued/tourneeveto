@@ -1,11 +1,12 @@
 /* MainLayout — tablette d'abord (768 px), puis téléphone (< 768 px) et poste (≥ 1024 px).
+   < 1024 px : barre du haut + onglets en bas ; ≥ 1024 px : barre latérale + barre du haut.
    Couleurs, espacements et rayons : uniquement les variables de tokens.css. */
 
 .shell {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto 1fr auto;
-    grid-template-areas: "banner" "header" "main" "nav";
+    grid-template-areas: "banner" "top" "main" "nav";
     min-block-size: 100dvh;
     background: var(--color-bg);
 }
@@ -30,23 +31,37 @@
     grid-area: banner;
 }
 
-.header {
-    grid-area: header;
+/* Sur tablette et téléphone, la barre latérale n'existe pas : seule la navigation (onglets du bas) reste. */
+.sidebar {
+    display: contents;
+}
+
+.side-brand,
+.sync,
+.profile {
+    display: none;
+}
+
+.topbar {
+    grid-area: top;
     position: sticky;
     inset-block-start: 0;
     z-index: 10;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--space-sm) var(--space-md);
+    gap: var(--space-xs) var(--space-sm);
     padding: var(--space-sm) var(--margin-tablet);
     border-block-end: var(--border-width) solid var(--color-border);
     background: var(--color-surface);
 }
 
-.brand {
-    display: flex;
+.desk-only {
+    display: none;
+}
+
+.brand,
+.side-brand {
     align-items: center;
     gap: var(--space-sm);
     min-block-size: var(--touch-target);
@@ -54,7 +69,13 @@
     text-decoration: none;
 }
 
+.brand {
+    display: flex;
+    margin-inline-end: auto;
+}
+
 .brand:focus-visible,
+.side-brand:focus-visible,
 .skip:focus-visible {
     outline: var(--focus-ring-width) solid var(--color-focus);
     outline-offset: var(--border-width-strong);
@@ -63,6 +84,7 @@
 .logo {
     display: grid;
     place-items: center;
+    flex: none;
     inline-size: var(--touch-target);
     block-size: var(--touch-target);
     border-radius: var(--radius-md);
@@ -91,6 +113,52 @@
     color: var(--color-text-muted);
     font: var(--font-label-sm);
     letter-spacing: var(--letter-spacing-label-sm);
+    text-transform: uppercase;
+}
+
+.avatar-button,
+.avatar,
+.icon-button {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    inline-size: var(--touch-target);
+    block-size: var(--touch-target);
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-full);
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font: var(--font-label-md);
+    cursor: pointer;
+}
+
+.avatar {
+    background: var(--color-info-surface);
+    color: var(--color-on-info-surface);
+    cursor: default;
+}
+
+.icon-button {
+    background: transparent;
+    color: var(--color-text-muted);
+}
+
+.icon-button svg {
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.avatar-button:focus-visible,
+.icon-button:focus-visible,
+.search-input:focus-visible {
+    outline: var(--focus-ring-width) solid var(--color-focus);
+    outline-offset: var(--border-width-strong);
 }
 
 .nav {
@@ -117,13 +185,32 @@
     padding: var(--space-lg) var(--margin-tablet) var(--space-xl);
 }
 
+.notice {
+    margin: 0 0 var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border: var(--border-width) solid var(--color-info);
+    border-radius: var(--radius-md);
+    background: var(--color-info-surface);
+    color: var(--color-on-info-surface);
+    font: var(--font-label-md);
+}
+
+.sr {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
 @media (max-width: 767.98px) {
-    .header {
+    .topbar {
         padding: var(--space-sm) var(--margin);
     }
 
-    .brand-tag {
-        display: none;
+    .brand-name {
+        font: var(--font-headline-sm);
     }
 
     .content {
@@ -135,27 +222,175 @@
     .shell {
         grid-template-columns: 18rem minmax(0, 1fr);
         grid-template-rows: auto auto 1fr;
-        grid-template-areas: "banner banner" "header main" "nav main";
+        grid-template-areas: "banner banner" "side top" "side main";
     }
 
-    .header {
-        position: static;
+    .sidebar {
+        grid-area: side;
+        grid-row: 2 / span 2;
+        display: flex;
         flex-direction: column;
-        align-items: stretch;
         gap: var(--space-lg);
+        position: sticky;
+        inset-block-start: 0;
+        align-self: start;
+        block-size: 100dvh;
+        box-sizing: border-box;
         padding: var(--space-lg);
-        border-block-end: 0;
         border-inline-end: var(--border-width) solid var(--color-border);
+        background: var(--color-surface);
+    }
+
+    .side-brand {
+        display: flex;
+    }
+
+    .sync {
+        display: block;
     }
 
     .nav {
         position: static;
-        padding: 0 var(--space-lg) var(--space-lg);
+        padding: 0;
         border-block-start: 0;
-        border-inline-end: var(--border-width) solid var(--color-border);
+    }
+
+    .profile {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        margin-block-start: auto;
+        padding: var(--space-sm);
+        border: var(--border-width) solid var(--color-border);
+        border-radius: var(--radius-lg);
+    }
+
+    .profile-text {
+        display: grid;
+        flex: 1;
+        min-inline-size: 0;
+    }
+
+    .profile-name {
+        font: var(--font-label-md);
+    }
+
+    .profile-title {
+        color: var(--color-text-muted);
+        font: var(--font-label-sm);
+    }
+
+    .topbar {
+        padding: var(--space-sm) var(--margin-desktop);
+        gap: var(--space-sm) var(--space-md);
+    }
+
+    .brand,
+    .mobile-only {
+        display: none;
+    }
+
+    .desk-only {
+        display: flex;
+    }
+
+    .chip {
+        align-items: center;
+        gap: var(--space-xs);
+        margin: 0;
+        padding: var(--space-xs) var(--space-md);
+        border-radius: var(--radius-full);
+        font: var(--font-label-md);
+    }
+
+    .chip svg {
+        inline-size: 1.25rem;
+        block-size: 1.25rem;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+    }
+
+    .chip--sector {
+        background: var(--color-info-surface);
+        color: var(--color-on-info-surface);
+    }
+
+    .chip--mode {
+        color: var(--color-text-muted);
+    }
+
+    .chip--fictive {
+        background: var(--color-warning-surface);
+        color: var(--color-on-warning-surface);
+    }
+
+    .search {
+        position: relative;
+        align-items: center;
+        flex: 1;
+        min-inline-size: 14rem;
+        max-inline-size: 26rem;
+        margin-inline-start: auto;
+    }
+
+    .search-icon {
+        position: absolute;
+        inset-inline-start: var(--space-sm);
+        inline-size: 1.25rem;
+        block-size: 1.25rem;
+        fill: none;
+        stroke: var(--color-text-muted);
+        stroke-width: 2;
+        stroke-linecap: round;
+    }
+
+    .search-input {
+        inline-size: 100%;
+        min-block-size: var(--touch-target);
+        box-sizing: border-box;
+        padding: var(--space-xs) var(--space-md) var(--space-xs) calc(var(--space-sm) + 1.75rem);
+        border: var(--border-width) solid var(--color-border-strong);
+        border-radius: var(--radius-full);
+        background: var(--color-surface-muted);
+        color: var(--color-text);
+        font: var(--font-body-md);
     }
 
     .content {
         padding: var(--space-xl) var(--margin-desktop);
+    }
+}
+
+/* Impression (rapport, story 10.2) : ni menu, ni barre du haut, ni bandeau, ni lien d'evitement ; le contenu occupe toute la page. */
+@media print {
+    .skip,
+    .banner,
+    .sidebar,
+    .topbar,
+    .nav {
+        display: none;
+    }
+
+    .shell {
+        display: block;
+        min-block-size: 0;
+        background: transparent;
+    }
+
+    .content {
+        max-inline-size: none;
+        padding: 0;
+    }
+}
+
+/* Entre 1024 et 1439 px, la pastille « Mode poste clinique actif » est masquée pour garder la barre du haut sur une ligne. */
+@media (min-width: 1024px) and (max-width: 1439.98px) {
+    .chip--mode {
+        display: none;
+    }
+
+    .search {
+        min-inline-size: 10rem;
     }
 }

@@ -1,0 +1,49 @@
+/* SccChart — illustration SVG ; couleurs : uniquement les variables de tokens.css. */
+
+.chart {
+    margin: 0;
+}
+
+.chart-art {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+}
+
+.grid {
+    stroke: var(--color-border);
+    stroke-width: 1.5;
+}
+
+.threshold {
+    stroke: var(--color-urgent);
+    stroke-width: 1.5;
+}
+
+.threshold-label {
+    fill: var(--color-on-urgent-surface);
+    font: var(--font-label-sm);
+}
+
+.curve {
+    stroke: var(--color-primary);
+    stroke-width: 3;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.dot {
+    fill: var(--color-surface);
+    stroke: var(--color-primary);
+    stroke-width: 3;
+}
+
+.dot--alert {
+    fill: var(--color-urgent);
+    stroke: var(--color-urgent);
+}
+
+.month {
+    fill: var(--color-text-muted);
+    font: var(--font-label-sm);
+}

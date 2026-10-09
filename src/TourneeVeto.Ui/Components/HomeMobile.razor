@@ -1,0 +1,158 @@
+@using TourneeVeto.Domain.Showcase
+@using TourneeVeto.Ui.Data
+@using TourneeVeto.Ui.Formatting
+
+@* Accueil sur tablette et téléphone (maquette tablette/accueil.png) : visible sous 1024 px. *@
+<div class="root">
+    <p class="ready">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 11a3.5 3.5 0 0 0 1 7z" /><path d="M9.5 13l2 2 3-3" /></svg>
+        Base locale prête · @ShowcaseLabels.Count(Snapshot.Farms.Count, "élevage synchronisé", "élevages synchronisés")
+    </p>
+
+    @if (Snapshot.Day.Farms.Count > 0)
+    {
+        <section class="alert" aria-labelledby="alert-title">
+            <span class="alert-mark" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24" focusable="false"><path d="M12 4v16M5 8l14 8M19 8L5 16" /></svg>
+            </span>
+            <div class="alert-text">
+                <h2 class="alert-eyebrow" id="alert-title">1 urgence signalée</h2>
+                <p class="alert-title">@Alert.Title · @Alert.FarmName</p>
+            </div>
+            <button type="button" class="alert-call" aria-label="Rappeler l'éleveur au @Alert.Phone (simulé)" @onclick="OnSimulate">Rappeler</button>
+        </section>
+
+        var stop = Snapshot.Day.Farms[0];
+        <section class="next" aria-labelledby="next-title">
+            <p class="next-head">
+                <span class="step">Étape 1 · @ShowcaseLabels.Time(stop.ArrivalTime)</span>
+                <span class="chip chip--ok">Prêt au départ</span>
+            </p>
+            <h2 class="next-title" id="next-title">@stop.FarmName</h2>
+            <p class="place">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
+                @stop.Farmer · @stop.Municipality (@ShowcaseLabels.Km(stop.DistanceKm))
+            </p>
+            <div class="motive">
+                <p class="motive-label">Motif d'intervention</p>
+                <p class="motive-text">@string.Join(" · ", stop.Tags) (@stop.HerdSize vaches)</p>
+            </div>
+            <button type="button" class="button button--primary" @onclick="OnSimulate">Lancer le guidage (@stop.TravelMinutes min)</button>
+            <a class="button button--soft" href="@($"regie/{stop.FarmId}")">Ouvrir la fiche cheptel</a>
+        </section>
+    }
+    else
+    {
+        <p class="status">Aucune visite prévue aujourd'hui.</p>
+    }
+
+    <section aria-labelledby="indicators-title">
+        <h2 class="section-title" id="indicators-title">Indicateurs de tournée</h2>
+        <ul class="tiles" role="list">
+            <li class="tile">
+                <span class="tile-top">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 16V10l2-4h12l2 4v6zM4 16h16M7 19v-3M17 19v-3" /></svg>
+                    <span class="tile-aside">@ShowcaseLabels.Km(Snapshot.Day.Tour.TotalKm)</span>
+                </span>
+                <span class="tile-value">@Snapshot.Day.Indicators.VisitsPlanned</span>
+                <span class="tile-label">Visites prévues</span>
+            </li>
+            <li class="tile">
+                <span class="tile-top">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4h6M12 4v6a4 4 0 1 0 4 4" /></svg>
+                    <span class="tile-aside tile-aside--chip">Repro</span>
+                </span>
+                <span class="tile-value">@Snapshot.Day.Indicators.PregnancyChecks</span>
+                <span class="tile-label">Gestations à tester</span>
+            </li>
+            <li class="tile">
+                <span class="tile-top">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8" /><path d="M9 14c1 1 5 1 6 0M9.5 9.5h.01M14.5 9.5h.01" /></svg>
+                    <span class="tile-aside tile-aside--ok">≤ @Snapshot.Day.Indicators.CalvingWindowDays j</span>
+                </span>
+                <span class="tile-value">@Snapshot.Day.Indicators.CalvingsImminent</span>
+                <span class="tile-label">Vêlages imminents</span>
+            </li>
+            <li class="tile tile--alert">
+                <span class="tile-top">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4l9 16H3zM12 10v4M12 17h.01" /></svg>
+                    <span class="tile-aside tile-aside--urgent">@Snapshot.Day.Indicators.SccFarmName</span>
+                </span>
+                <span class="tile-value">@Snapshot.Day.Indicators.SccAlerts</span>
+                <span class="tile-label">Alerte CCS / mammites</span>
+            </li>
+        </ul>
+    </section>
+
+    <section aria-labelledby="tools-title">
+        <h2 class="section-title" id="tools-title">Actions &amp; Outils Terrain</h2>
+        <ul class="tools" role="list">
+            <li>
+                <a class="tool" href="tournee">
+                    <span class="tool-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2zM9 4v14M15 6v14" /></svg></span>
+                    <span class="tool-text">
+                        <span class="tool-title">Tournée &amp; Itinéraire</span>
+                        <span class="tool-desc">Feuille de route · @ShowcaseLabels.Count(Snapshot.Day.Farms.Count, "arrêt", "arrêts")</span>
+                    </span>
+                    <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" /></svg>
+                </a>
+            </li>
+            <li>
+                <a class="tool" href="regie">
+                    <span class="tool-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7l2 2 3-3M4 15l2 2 3-3M12 8h8M12 16h8" /></svg></span>
+                    <span class="tool-text">
+                        <span class="tool-title">Grille de régie troupeau</span>
+                        <span class="tool-desc">Saisie directe par n° de boucle</span>
+                    </span>
+                    <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" /></svg>
+                </a>
+            </li>
+            <li>
+                <a class="tool" href="biosecurite">
+                    <span class="tool-icon tool-icon--ok"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z" /><path d="M9 12l2 2 4-4" /></svg></span>
+                    <span class="tool-text">
+                        <span class="tool-title">Bilan biosécurité</span>
+                        <span class="tool-desc">Questionnaire et score de l'élevage</span>
+                    </span>
+                    <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" /></svg>
+                </a>
+            </li>
+            <li>
+                <a class="tool" href="rapport">
+                    <span class="tool-icon tool-icon--soft"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 3h7l4 4v14H7z" /><path d="M14 3v4h4M9.5 12h6M9.5 16h6" /></svg></span>
+                    <span class="tool-text">
+                        <span class="tool-title">Rapports &amp; Certificats</span>
+                        <span class="tool-desc">Rapport de visite imprimable</span>
+                    </span>
+                    <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" /></svg>
+                </a>
+            </li>
+        </ul>
+    </section>
+
+    <section class="vehicle" aria-labelledby="vehicle-title">
+        <div class="vehicle-head">
+            <h2 class="vehicle-title" id="vehicle-title">Véhicule &amp; Matériel de bord</h2>
+            <span class="vehicle-check">Vérifié à @ShowcaseLabels.Time(Snapshot.Day.LastSync)</span>
+        </div>
+        <ul class="equipment" role="list">
+            @foreach (var item in Snapshot.Day.Equipment)
+            {
+                <li class="equipment-item">
+                    <span>@item.Name</span>
+                    <span class="pill @(item.Ready ? "pill--ok" : "pill--warning")">@item.Status</span>
+                </li>
+            }
+        </ul>
+    </section>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public ShowcaseSnapshot Snapshot { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback OnSimulate { get; set; }
+
+    private UrgentAlert Alert => Snapshot.Day.Alert;
+}

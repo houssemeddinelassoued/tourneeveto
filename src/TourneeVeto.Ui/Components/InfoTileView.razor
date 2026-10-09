@@ -1,0 +1,14 @@
+@using TourneeVeto.Domain.Showcase
+
+@* Tuile d'information de la fiche vache (stade physiologique, bilan CCS, mesure de surveillance…). *@
+<div class="tile @(Data.Alert ? "tile--alert" : null)">
+    <p class="tile-label">@Data.Label</p>
+    <p class="tile-value">@Data.Value</p>
+    <p class="tile-note">@Data.Note</p>
+</div>
+
+@code {
+    /// <summary>Contenu de la tuile.</summary>
+    [Parameter, EditorRequired]
+    public InfoTile Data { get; set; } = default!;
+}

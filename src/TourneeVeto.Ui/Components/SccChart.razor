@@ -1,0 +1,52 @@
+@using System.Globalization
+@using TourneeVeto.Domain.Showcase
+
+@* Courbe du CCS sur six mois (illustration SVG inline, données fictives du domaine ; le dernier point est le dernier contrôle réel).
+   Le seuil d'alerte est en pointillé ; un résumé en texte remplace le graphique pour les lecteurs d'écran. *@
+<figure class="chart">
+    <svg class="chart-art" viewBox="0 0 600 220" role="img" aria-label="@Summary" focusable="false">
+        <line class="grid" x1="@Num(Left)" y1="@Num(Bottom)" x2="@Num(Right)" y2="@Num(Bottom)" />
+        <line class="threshold" x1="@Num(Left)" y1="@Num(Y(Threshold))" x2="@Num(Right)" y2="@Num(Y(Threshold))" stroke-dasharray="6 5" />
+        <text class="threshold-label" x="@Num(Left)" y="@Num(Y(Threshold) - 6)">Seuil d'alerte @(Threshold)k</text>
+        <polyline class="curve" points="@Polyline" fill="none" />
+        @for (var index = 0; index < Points.Count; index++)
+        {
+            var point = Points[index];
+            <circle class="dot @(point.Thousands > Threshold ? "dot--alert" : null)" cx="@Num(X(index))" cy="@Num(Y(point.Thousands))" r="5" />
+            <g><text class="month" x="@Num(X(index))" y="212" text-anchor="middle">@Month(point.Month)</text></g>
+        }
+    </svg>
+</figure>
+
+@code {
+    private const double Left = 20;
+    private const double Right = 580;
+    private const double Top = 20;
+    private const double Bottom = 190;
+
+    private static readonly CultureInfo French = CultureInfo.GetCultureInfo("fr-CA");
+
+    /// <summary>Points mensuels, du plus ancien au plus récent.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<SccPoint> Points { get; set; } = [];
+
+    /// <summary>Seuil d'alerte, en milliers de cellules/mL.</summary>
+    [Parameter, EditorRequired]
+    public int Threshold { get; set; }
+
+    private double Max => Math.Max(Threshold * 1.3, Points.Count == 0 ? 0 : Points.Max(point => point.Thousands) * 1.15);
+
+    private string Summary => Points.Count == 0
+        ? "Aucune donnée de CCS."
+        : $"Courbe du CCS sur {Points.Count} mois : de {Points[0].Thousands}k à {Points[^1].Thousands}k sp/mL, seuil d'alerte à {Threshold}k sp/mL.";
+
+    private double X(int index) => Points.Count <= 1 ? (Left + Right) / 2 : Left + 20 + index * (Right - Left - 40) / (Points.Count - 1);
+
+    private double Y(double thousands) => Bottom - (Bottom - Top) * Math.Min(thousands, Max) / Max;
+
+    private string Polyline => string.Join(" ", Points.Select((point, index) => $"{Num(X(index))},{Num(Y(point.Thousands))}"));
+
+    private static string Month(DateOnly month) => month.ToString("MMM yyyy", French);
+
+    private static string Num(double value) => value.ToString("0.#", CultureInfo.InvariantCulture);
+}

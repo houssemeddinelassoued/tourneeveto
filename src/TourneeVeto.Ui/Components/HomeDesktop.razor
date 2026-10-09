@@ -1,0 +1,271 @@
+@using TourneeVeto.Domain.Showcase
+@using TourneeVeto.Ui.Data
+@using TourneeVeto.Ui.Formatting
+
+@* Tableau de bord du poste clinique (maquette web/tableau-de-bord.png) : visible à partir de 1024 px. *@
+<div class="root">
+    <ul class="tiles" role="list">
+        <li class="tile">
+            <span class="tile-head">
+                <span class="tile-label">Tournée du jour</span>
+                <span class="tile-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 16V10l2-4h12l2 4v6zM4 16h16M7 19v-3M17 19v-3" /></svg></span>
+            </span>
+            <span class="tile-value">@Ind.VisitsPlanned</span>
+            <span class="tile-foot">
+                <span class="tile-line"><span>Circuit routier</span><strong>@ShowcaseLabels.Km(Day.Tour.TotalKm)</strong></span>
+                <progress class="bar" max="100" value="@Ind.TourProgressPercent" aria-label="Avancement du circuit routier"></progress>
+                <span class="tile-note">Départ clinique @ShowcaseLabels.Time(Day.Tour.Departure) · retour @ShowcaseLabels.Time(Day.Tour.Return)</span>
+            </span>
+        </li>
+        <li class="tile">
+            <span class="tile-head">
+                <span class="tile-label">Suivi reproduction</span>
+                <span class="tile-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4h6M12 4v6a4 4 0 1 0 4 4" /></svg></span>
+            </span>
+            <span class="tile-value">@Ind.PregnancyChecks</span>
+            <span class="tile-foot">
+                <span class="tile-line"><span>Gestations à tester</span><strong>@Ind.PregnancyChecks / @Ind.RegieRows lignes</strong></span>
+                <progress class="bar" max="100" value="@Ind.ReproSharePercent" aria-label="Part des lignes de régie : diagnostics de gestation"></progress>
+                <span class="tile-note">@Ind.CalvingsImminent vêlage(s) à surveiller sous @Ind.CalvingWindowDays jours</span>
+            </span>
+        </li>
+        <li class="tile tile--urgent">
+            <span class="tile-head">
+                <span class="tile-label">Vigilances immédiates</span>
+                <span class="tile-icon tile-icon--urgent"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4l9 16H3zM12 10v4M12 17h.01" /></svg></span>
+            </span>
+            <span class="tile-value">@(Ind.SccAlerts + 1)</span>
+            <span class="tile-foot">
+                <span class="tile-note tile-note--urgent">1 suspicion de dystocie signalée</span>
+                <span class="tile-note">@Ind.SccAlerts vache(s) au CCS élevé (suspicion de mammite)</span>
+                <progress class="bar bar--urgent" max="100" value="@Ind.VigilanceSharePercent" aria-label="Part des lignes de régie au CCS élevé"></progress>
+            </span>
+        </li>
+        <li class="tile">
+            <span class="tile-head">
+                <span class="tile-label">Dossiers réglementaires</span>
+                <span class="tile-icon tile-icon--ok"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z" /><path d="M9 12l2 2 4-4" /></svg></span>
+            </span>
+            <span class="tile-value">@Ind.VisitsPlanned</span>
+            <span class="tile-foot">
+                <span class="tile-line"><span>Télétransmission</span><strong>Prêts (fictif)</strong></span>
+                <progress class="bar bar--ok" max="100" value="@Ind.DossiersReadyPercent" aria-label="Dossiers prêts à signer"></progress>
+                <span class="tile-note">Signature électronique en attente</span>
+            </span>
+        </li>
+    </ul>
+
+    <div class="columns">
+        <div class="column">
+            <section class="card" aria-labelledby="plan-title">
+                <div class="card-head">
+                    <div>
+                        <h2 class="card-title" id="plan-title">Plan d'intervention quotidien</h2>
+                        <p class="card-sub">Chronologie calculée · temps d'actes estimés</p>
+                    </div>
+                    @if (Day.Farms.Count > 0)
+                    {
+                        <span class="chip chip--muted">Début @ShowcaseLabels.Time(Day.Farms[0].ArrivalTime)</span>
+                    }
+                </div>
+
+                @if (Day.Farms.Count == 0)
+                {
+                    <p class="status">Aucune visite prévue aujourd'hui.</p>
+                }
+                else
+                {
+                    <ol class="plan" role="list">
+                        @foreach (var stop in Day.Farms)
+                        {
+                            <li class="step @(stop.Order == 1 ? "step--first" : null)">
+                                <span class="step-number" aria-hidden="true">@stop.Order</span>
+                                <div class="step-body">
+                                    <p class="step-head">
+                                        <a class="step-title" href="@($"regie/{stop.FarmId}")">@ShowcaseLabels.Time(stop.ArrivalTime) — @stop.FarmName</a>
+                                        <span class="chip @(stop.Order == 1 ? "chip--primary" : "chip--muted")">@(stop.Order == 1 ? "En préparation" : "Programmé")</span>
+                                    </p>
+                                    <p class="step-line">Élevage laitier @stop.Breed (@stop.HerdSize vaches) · @stop.Municipality · éleveur : @stop.Farmer (@stop.Phone)</p>
+                                    <p class="step-line step-line--muted">@stop.Address</p>
+                                    <p class="step-tags">
+                                        @foreach (var tag in stop.Tags)
+                                        {
+                                            <span class="tag">@tag</span>
+                                        }
+                                        <span class="tag">Temps prévu : @ShowcaseLabels.Duration(stop.VisitMinutes)</span>
+                                        <span class="tag">Dist. @ShowcaseLabels.Km(stop.DistanceKm)</span>
+                                    </p>
+                                    <p class="step-line step-line--muted">Consigne : @stop.Instruction Accès : @stop.YardAccess</p>
+                                </div>
+                            </li>
+                        }
+                        <li class="step step--urgent">
+                            <span class="step-number step-number--urgent" aria-hidden="true">!</span>
+                            <div class="step-body">
+                                <p class="step-head">
+                                    <span class="step-title step-title--urgent">@ShowcaseLabels.Time(Day.Alert.Time) — @Day.Alert.FarmName</span>
+                                    <span class="chip chip--urgent">Urgence inscrite</span>
+                                </p>
+                                <p class="step-line">@Day.Alert.Title : @Day.Alert.Description</p>
+                                <p class="step-tags">
+                                    <span class="tag tag--urgent">Matériel obstétrical pré-chargé</span>
+                                    <span class="tag">Contact éleveur : @Day.Farms.First(stop => stop.FarmId == Day.Alert.FarmId).Farmer · @Day.Alert.Phone</span>
+                                </p>
+                            </div>
+                        </li>
+                    </ol>
+                }
+            </section>
+
+            <section class="card" aria-labelledby="circuit-title">
+                <div class="card-head">
+                    <div>
+                        <h2 class="card-title" id="circuit-title">Circuit géographique &amp; conditions terrain</h2>
+                        <p class="card-sub">@Day.Veterinarian.Sector · @ShowcaseLabels.Count(Day.Farms.Count, "étape optimisée", "étapes optimisées")</p>
+                    </div>
+                    <span class="chip chip--primary">@Day.Tour.Weather.TemperatureC °C · @Day.Tour.Weather.Conditions</span>
+                </div>
+
+                <svg class="map" viewBox="0 0 400 180" role="img" aria-label="Carte stylisée du circuit : @Day.Farms.Count étapes (illustration fictive)">
+                    <rect class="m-bg" width="400" height="180" />
+                    <path d="M0 150 C80 120 120 170 200 140 S340 120 400 150 L400 180 L0 180 Z" class="m-water" />
+                    <path d="M20 20 L110 45 L150 20 L230 40 L300 18 L380 40" class="m-road" stroke-width="6" />
+                    <path d="M0 95 C90 80 160 110 250 90 S350 70 400 85" class="m-road" stroke-width="4" />
+                    <polyline points="@RoutePoints" class="m-route" stroke-width="3" stroke-dasharray="7 5" stroke-linecap="round" stroke-linejoin="round" />
+                    <g>
+                        <rect x="@(ClinicX - 9)" y="@(ClinicY - 9)" width="18" height="18" rx="3" class="m-clinic" />
+                        <text x="@ClinicX" y="@(ClinicY + 28)" text-anchor="middle" font-size="11" class="m-text">Clinique</text>
+                    </g>
+                    @foreach (var stop in Day.Farms)
+                    {
+                        var (x, y) = Point(stop.Order);
+                        <g>
+                            <circle cx="@x" cy="@y" r="12" class="m-stop" />
+                            <text x="@x" y="@(y + 4)" text-anchor="middle" font-size="12" font-weight="700" class="m-text-on">@stop.Order</text>
+                        </g>
+                    }
+                </svg>
+
+                <div class="depart">
+                    <p class="depart-text">
+                        @if (Day.Farms.Count > 0)
+                        {
+                            <strong>Prochain départ : @Day.Farms[0].FarmName</strong>
+                            <span>@Day.Farms[0].TravelMinutes min · @ShowcaseLabels.Km(Day.Farms[0].DistanceKm)</span>
+                        }
+                        else
+                        {
+                            <strong>Aucun départ prévu</strong>
+                        }
+                    </p>
+                    <button type="button" class="button button--primary" @onclick="OnSimulate">Naviguer</button>
+                </div>
+
+                <div class="pharmacy">
+                    <span class="pharmacy-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6v3H9zM8 6h8v14H8zM8 12h8" /></svg></span>
+                    <p class="pharmacy-text">
+                        <strong>@Day.Pharmacy.VehicleName</strong>
+                        <span>@Day.Pharmacy.Summary</span>
+                    </p>
+                    <span class="pill @(Day.Pharmacy.Ok ? "pill--ok" : "pill--warning")">@Day.Pharmacy.Status</span>
+                </div>
+            </section>
+        </div>
+
+        <div class="column column--side">
+            <section class="card" aria-labelledby="subjects-title">
+                <div class="card-head">
+                    <div>
+                        <h2 class="card-title" id="subjects-title">Sujets sous surveillance</h2>
+                        <p class="card-sub">Identification bovine &amp; motifs de suivi</p>
+                    </div>
+                    <span class="chip chip--urgent">@Day.Subjects.Count fiche(s) active(s)</span>
+                </div>
+                @if (Day.Subjects.Count == 0)
+                {
+                    <p class="status">Aucun sujet urgent aujourd'hui.</p>
+                }
+                else
+                {
+                    <ul class="subjects" role="list">
+                        @foreach (var subject in Day.Subjects.Take(3))
+                        {
+                            <li class="subject">
+                                <p class="subject-head">
+                                    <span class="subject-id">N° @subject.CowId</span>
+                                    <span class="tag">« @subject.CowName »</span>
+                                    <span class="chip chip--urgent">@subject.Tag</span>
+                                </p>
+                                <p class="step-line">@subject.Detail</p>
+                                <p class="subject-foot">
+                                    <span>@subject.PlannedAction</span>
+                                    <a class="link" href="@($"regie/{subject.FarmId}?q={Uri.EscapeDataString(subject.CowId)}")">Ouvrir fiche animal <span class="sr">@subject.CowName</span></a>
+                                </p>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <section class="card" aria-labelledby="modules-title">
+                <h2 class="card-title" id="modules-title">Modules cliniques</h2>
+                <ul class="modules" role="list">
+                    <li><a class="module" href="tournee"><span class="count">@Ind.VisitsPlanned</span><span class="module-title">Tournée du jour</span><span class="module-sub">Ordres et guidage</span></a></li>
+                    <li><a class="module" href="regie"><span class="count">@Ind.RegieRows</span><span class="module-title">Grille de régie</span><span class="module-sub">Saisie échos &amp; soins</span></a></li>
+                    <li><a class="module" href="biosecurite"><span class="count">@Ind.BiosecurityAudits</span><span class="module-title">Biosécurité</span><span class="module-sub">Audits conformité</span></a></li>
+                    <li><a class="module" href="rapport"><span class="count">@Ind.VisitsPlanned</span><span class="module-title">Rapports &amp; Cerfa</span><span class="module-sub">Signatures officielles</span></a></li>
+                </ul>
+                <p class="registry">
+                    <strong>Registre national sécurisé (fictif)</strong>
+                    <span>Ordonnances et délivrances J-1 transmises avec succès au registre de démonstration.</span>
+                </p>
+            </section>
+
+            <figure class="station">
+                <svg viewBox="0 0 400 220" role="img" aria-label="Illustration fictive de la station vétérinaire et de son véhicule">
+                    <rect class="s-sky" width="400" height="220" />
+                    <rect class="s-ground" y="150" width="400" height="70" />
+                    <rect x="30" y="70" width="170" height="80" class="s-wall" />
+                    <path d="M20 72 L115 30 L210 72 Z" class="s-roof" />
+                    <rect x="55" y="95" width="30" height="55" class="s-roof" />
+                    <rect x="110" y="95" width="60" height="30" class="s-glass" />
+                    <rect x="235" y="105" width="120" height="50" rx="8" class="s-van" />
+                    <rect x="320" y="115" width="36" height="22" class="s-glass" />
+                    <path d="M265 120 h30 M280 105 v30" class="s-cross" stroke-width="5" />
+                    <circle cx="262" cy="158" r="12" class="s-wheel" />
+                    <circle cx="334" cy="158" r="12" class="s-wheel" />
+                </svg>
+                <figcaption class="station-caption">
+                    <span class="station-eyebrow">Station vétérinaire fixe · illustration fictive</span>
+                    <strong>Poste @Day.Veterinarian.Sector opérationnel</strong>
+                    <span>Prêt pour le départ de la tournée matinale de @ShowcaseLabels.Time(Day.Tour.Departure)</span>
+                </figcaption>
+            </figure>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Carte stylisée : le clinique à gauche, les étapes réparties sur la largeur en alternant hauteur haute et basse.
+    private const int ClinicX = 36;
+    private const int ClinicY = 130;
+    private static readonly int[] Heights = [60, 110, 50, 100];
+
+    [Parameter, EditorRequired]
+    public ShowcaseSnapshot Snapshot { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback OnSimulate { get; set; }
+
+    private ShowcaseDay Day => Snapshot.Day;
+
+    private ShowcaseIndicators Ind => Snapshot.Day.Indicators;
+
+    private (int X, int Y) Point(int order) =>
+        (ClinicX + 40 + (order - 1) * (320 / Math.Max(Day.Farms.Count, 1)), Heights[(order - 1) % Heights.Length]);
+
+    private string RoutePoints =>
+        string.Join(' ', new[] { $"{ClinicX},{ClinicY}" }
+            .Concat(Day.Farms.Select(stop => Point(stop.Order)).Select(point => $"{point.X},{point.Y}"))
+            .Append($"{ClinicX},{ClinicY}"));
+}

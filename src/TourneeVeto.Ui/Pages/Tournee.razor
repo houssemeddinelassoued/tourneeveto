@@ -1,0 +1,194 @@
+@page "/tournee"
+@using TourneeVeto.Domain.Regie
+@using TourneeVeto.Domain.Showcase
+@using TourneeVeto.Domain.Visits
+@using TourneeVeto.Ui.Data
+@using TourneeVeto.Ui.Formatting
+@using TourneeVeto.Ui.Platform
+@inject ShowcaseProvider Provider
+@inject IVisitRepository Repository
+@inject RegieThresholds Thresholds
+@inject ReportPrinter Printer
+
+@* Tournée du jour (maquettes design/stitch/tablette/tournee.png et web/tournee.png). Le nombre de vaches à voir et d'urgences
+   vient de DailyActions (TourneeVeto.Domain) ; la page charge, filtre et délègue l'affichage à TourneeMobile et TourneeDesktop.
+   Les boutons d'actions externes sont simulés. *@
+
+<PageTitle>Tournée du jour — TournéeVéto</PageTitle>
+
+<section class="root" aria-labelledby="tour-title" aria-busy="@(stops is null && error is null ? "true" : "false")">
+    @if (snapshot is not null)
+    {
+        <div class="only-mobile"><OfflineBanner Farms="snapshot.Day.Farms.Count" /></div>
+    }
+
+    <header class="header">
+        <p class="eyebrow-row">
+            <span class="eyebrow">
+                <span class="only-mobile-inline">Planning d'intervention</span>
+                <span class="only-desk-inline">Planning de secteur · @Vet.Sector</span>
+            </span>
+            @if (snapshot is not null)
+            {
+                <span class="sync only-mobile-inline">Synchronisé à @ShowcaseLabels.Time(snapshot.Day.LastSync)</span>
+            }
+        </p>
+        <h1 class="title" id="tour-title">@DateLabel</h1>
+        @if (stops is { Count: > 0 })
+        {
+            <p class="summary only-mobile">
+                <span>@ShowcaseLabels.Count(stops.Count, "visite prévue", "visites prévues")</span>
+                <span class="chip chip--ok">@stops.Sum(stop => stop.ToSee) bovins ciblés</span>
+            </p>
+        }
+
+        <p class="demo-mark"><span class="chip chip--muted">Données fictives</span></p>
+
+        @if (snapshot is not null)
+        {
+            <div class="desk-extra only-desk">
+                <p class="sync-card">
+                    <strong>Synchronisé à @ShowcaseLabels.Time(snapshot.Day.LastSync)</strong>
+                    <span>@ShowcaseLabels.Count(snapshot.Day.Farms.Count, "cheptel prêt", "cheptels prêts") · Mode autonome actif</span>
+                </p>
+                <p class="figures">
+                    <span><strong>@snapshot.Day.Indicators.VisitsPlanned</strong> Visites prévues</span>
+                    <span><strong>@snapshot.Day.Tour.TotalKm.ToString("0.0", FrenchCanada)</strong> km trajet est.</span>
+                </p>
+                <div class="header-actions">
+                    <button type="button" class="button button--soft" @onclick="PrintAsync">Feuille de route</button>
+                    <button type="button" class="button button--urgent" @onclick="Simulate">+ Ajouter Urgence</button>
+                </div>
+            </div>
+        }
+    </header>
+
+    <p class="demo" role="status">@message</p>
+
+    @if (printError is not null)
+    {
+        <p class="error" role="alert">@printError</p>
+    }
+
+    @if (error is not null)
+    {
+        <p class="error" role="alert">@error</p>
+    }
+    else if (stops is null)
+    {
+        <p class="status">Chargement de la tournée…</p>
+    }
+    else if (stops.Count == 0)
+    {
+        <p class="status">Aucune visite prévue aujourd'hui.</p>
+        <div class="only-mobile">
+            <TourneeMobile Stops="NoStops" OnSimulate="Simulate" />
+        </div>
+    }
+    else
+    {
+        <div class="toolbar">
+            <label class="search only-desk">
+                <span class="sr">Rechercher un élevage ou un motif</span>
+                <input type="search" placeholder="Rechercher élevage, motif, cheptel…" @bind="search" @bind:event="oninput" />
+            </label>
+            <div class="filters" role="group" aria-label="Filtrer les visites">
+                @foreach (var (option, label) in FilterOptions)
+                {
+                    <button type="button" class="filter" aria-pressed="@(filter == option ? "true" : "false")" @onclick="() => filter = option">
+                        @label (@CountFor(option))
+                    </button>
+                }
+            </div>
+        </div>
+
+        @if (!VisibleStops.Any())
+        {
+            <p class="status">Aucune visite ne correspond à ce filtre.</p>
+        }
+
+        <div class="only-mobile">
+            <TourneeMobile Stops="VisibleStops" Alert="snapshot!.Day.Alert" ShowAlert="@(filter == VisitFilter.All && search.Length == 0)" OnSimulate="Simulate" />
+        </div>
+        <div class="only-desk">
+            <TourneeDesktop Stops="VisibleStops" Day="snapshot!.Day" SelectedId="@selectedId" OnSelect="Select" OnSimulate="Simulate" />
+        </div>
+    }
+</section>
+
+@code {
+    private const string DemoMessage = "Démonstration : fonction simulée, aucune donnée envoyée.";
+
+    private static readonly System.Globalization.CultureInfo FrenchCanada = System.Globalization.CultureInfo.GetCultureInfo("fr-CA");
+
+    private static readonly (VisitFilter Option, string Label)[] FilterOptions =
+    [
+        (VisitFilter.All, "Toutes"),
+        (VisitFilter.InProgress, "En cours"),
+        (VisitFilter.Waiting, "En attente"),
+        (VisitFilter.Urgent, "Urgence"),
+    ];
+
+    private static readonly IReadOnlyList<TourStop> NoStops = [];
+
+    private ShowcaseSnapshot? snapshot;
+    private IReadOnlyList<TourStop>? stops;
+    private VisitFilter filter = VisitFilter.All;
+    private string search = string.Empty;
+    private string? selectedId;
+    private string? error;
+    private string? message;
+    private string? printError;
+
+    private VeterinarianProfile Vet => snapshot?.Day.Veterinarian ?? ShowcaseBuilder.DemoVeterinarian;
+
+    private string DateLabel => snapshot is null ? string.Empty : ShowcaseLabels.LongDate(snapshot.Today);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Les données viennent du stockage local, alimenté au premier lancement par le jeu de démonstration.
+            var loaded = await Provider.LoadAsync();
+            var visits = (await Repository.GetVisitsByDateAsync(loaded.Today)).ToLookup(visit => visit.FarmId);
+
+            var result = new List<TourStop>();
+            foreach (var info in loaded.Day.Farms)
+            {
+                var visit = visits[info.FarmId].First();
+                var grid = DailyActions.Compute(loaded.Cows.Where(cow => cow.FarmId == info.FarmId), loaded.Today, Thresholds);
+                var progress = VisitProgresses.Of(await Repository.GetVisitRecordsAsync(visit.Id));
+                result.Add(new TourStop(info, visit, info.Order - 1, grid.Items, progress));
+            }
+
+            (snapshot, stops) = (loaded, result);
+        }
+        catch (StorageUnavailableException exception)
+        {
+            error = exception.Message;
+        }
+    }
+
+    // Le rang d'étape reste celui de la tournée complète, même quand un filtre masque des visites.
+    private IReadOnlyList<TourStop> VisibleStops =>
+        [.. stops!.Where(stop => VisitFilters.Matches(filter, stop.Progress, stop.Urgent) && StopSearch.Matches(stop.Info, search))];
+
+    private int CountFor(VisitFilter option) => stops!.Count(stop => VisitFilters.Matches(option, stop.Progress, stop.Urgent));
+
+    private void Select(string farmId) => selectedId = farmId;
+
+    private void Simulate() => message = DemoMessage;
+
+    private async Task PrintAsync()
+    {
+        try
+        {
+            printError = null;
+            await Printer.PrintAsync();
+        }
+        catch (Microsoft.JSInterop.JSException)
+        {
+            printError = "Impression impossible sur cet appareil.";
+        }
+    }
+}

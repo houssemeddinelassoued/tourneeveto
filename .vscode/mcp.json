@@ -5,6 +5,14 @@
 			"url": "https://api.githubcopilot.com/mcp/",
 			"gallery": "https://api.mcp.github.com",
 			"version": "2.0.1"
+		},
+		"playwright": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@playwright/mcp@0.0.82"
+			]
 		}
 	}
 }

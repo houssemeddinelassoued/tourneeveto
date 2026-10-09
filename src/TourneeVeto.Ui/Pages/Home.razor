@@ -1,118 +1,74 @@
 @page "/"
-@using System.Globalization
-@using TourneeVeto.Domain.Herd
-@using TourneeVeto.Domain.Regie
-@using TourneeVeto.Domain.Visits
 @using TourneeVeto.Ui.Data
-@inject DemoDataSeeder Seeder
-@inject IVisitRepository Repository
-@inject TimeProvider TimeProvider
-@inject RegieThresholds Thresholds
+@using TourneeVeto.Ui.Formatting
+@inject ShowcaseProvider Provider
 
-@* Tournée du jour (maquettes design/stitch/*/tournee.png). Le nombre de vaches à voir et d'urgences vient de
-   DailyActions (TourneeVeto.Domain) ; la page ne fait que les compter et les afficher. *@
+@* Accueil (maquettes design/stitch/tablette/accueil.png et web/tableau-de-bord.png). Les chiffres viennent du domaine
+   (ShowcaseBuilder, DailyActions) ; la page ne fait que charger et afficher. Les boutons d'actions externes sont simulés. *@
 
-<PageTitle>Tournée du jour — TournéeVéto</PageTitle>
+<PageTitle>Accueil — TournéeVéto</PageTitle>
 
-<section class="root" aria-labelledby="tour-title" aria-busy="@(stops is null && error is null ? "true" : "false")">
-    <header class="header">
-        <p class="eyebrow">Planning d'intervention</p>
-        <h1 class="title" id="tour-title">@DateLabel</h1>
-        @if (stops is { Count: > 0 })
+<section class="root" aria-labelledby="home-title" aria-busy="@(snapshot is null && error is null ? "true" : "false")">
+    <header class="hero">
+        <p class="eyebrow">@(snapshot is null ? string.Empty : ShowcaseLabels.LongDate(snapshot.Today))</p>
+        <h1 class="title" id="home-title">
+            <span class="only-mobile">Bonjour, @Vet.Name</span>
+            <span class="only-desk">@Vet.ClinicName · @Vet.Name</span>
+        </h1>
+
+        @if (snapshot is not null)
         {
-            <p class="summary">
-                <span>@stops.Count visite(s) prévue(s)</span>
-                <span class="chip chip--ok">@stops.Sum(stop => stop.ToSee) vache(s) à voir</span>
-            </p>
+            <div class="only-desk hero-extra">
+                <p class="hero-chips">
+                    <span class="chip chip--primary">Poste fixe clinique</span>
+                    <span class="chip chip--muted">Secteur : @Vet.Sector (rayon 45 km)</span>
+                    <span class="chip chip--ok">Synchronisation @ShowcaseLabels.Time(snapshot.Day.LastSync) (fictive)</span>
+                </p>
+                <p class="subtitle">
+                    Plan d'intervention et télémesures du @ShowcaseLabels.DayMonth(snapshot.Today) ·
+                    @ShowcaseLabels.Count(snapshot.Day.Indicators.VisitsPlanned, "cheptel programmé", "cheptels programmés")
+                </p>
+                <div class="hero-actions">
+                    <button type="button" class="button button--urgent" @onclick="Simulate">+ Urgence d'élevage</button>
+                    <button type="button" class="button button--primary" @onclick="Simulate">Préparer tournée J+1</button>
+                    <button type="button" class="button button--soft" @onclick="Simulate">Export Hebdo</button>
+                </div>
+            </div>
         }
     </header>
+
+    <p class="demo" role="status">@message</p>
 
     @if (error is not null)
     {
         <p class="error" role="alert">@error</p>
     }
-    else if (stops is null)
+    else if (snapshot is null)
     {
-        <p class="status">Chargement de la tournée…</p>
-    }
-    else if (stops.Count == 0)
-    {
-        <p class="status">Aucune visite prévue aujourd'hui.</p>
+        <p class="status">Chargement de l'accueil…</p>
     }
     else
     {
-        <ol class="stops" role="list">
-            @foreach (var (stop, index) in stops.Select((stop, index) => (stop, index)))
-            {
-                var isNext = index == 0;
-                <li class="stop @(isNext ? "stop--next" : null)" @key="stop.Visit.Id">
-                    <p class="states">
-                        <span class="state @StateClass(stop, isNext)">Étape @(index + 1) · @StateLabel(stop, isNext)</span>
-                        @if (stop.Urgent > 0)
-                        {
-                            <span class="state state--urgent">Vigilance : @stop.Urgent urgence(s)</span>
-                        }
-                    </p>
-                    <h2 class="farm">@stop.Farm.Name</h2>
-                    <p class="place">
-                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                            <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" />
-                        </svg>
-                        @stop.Farm.Municipality · @stop.Farm.CowCount vaches
-                    </p>
-                    <div class="motive">
-                        <p class="motive-label">Motif</p>
-                        <p class="reason">@stop.Visit.Reason</p>
-                    </div>
-                    <p class="chips">
-                        <span class="chip">@stop.ToSee vache(s) à voir</span>
-                    </p>
-                    <a class="action @(isNext ? "action--primary" : "action--secondary")" href="@($"regie/{stop.Farm.Id}")">
-                        @(isNext ? "Démarrer la visite" : "Voir l'élevage")
-                    </a>
-                </li>
-            }
-        </ol>
+        <HomeMobile Snapshot="snapshot" OnSimulate="Simulate" />
+        <HomeDesktop Snapshot="snapshot" OnSimulate="Simulate" />
     }
 </section>
 
 @code {
-    private static readonly CultureInfo FrenchCanada = CultureInfo.GetCultureInfo("fr-CA");
+    private const string DemoMessage = "Démonstration : fonction simulée, aucune donnée envoyée.";
 
-    private IReadOnlyList<Stop>? stops;
+    private ShowcaseSnapshot? snapshot;
     private string? error;
-    private DateOnly today;
+    private string? message;
 
-    private string DateLabel
-    {
-        get
-        {
-            var label = today.ToString("dddd d MMMM yyyy", FrenchCanada);
-            return label.Length == 0 ? label : char.ToUpper(label[0], FrenchCanada) + label[1..];
-        }
-    }
+    private TourneeVeto.Domain.Showcase.VeterinarianProfile Vet =>
+        snapshot?.Day.Veterinarian ?? TourneeVeto.Domain.Showcase.ShowcaseBuilder.DemoVeterinarian;
 
     protected override async Task OnInitializedAsync()
     {
-        today = DateOnly.FromDateTime(TimeProvider.GetLocalNow().DateTime);
         try
         {
-            // Les données viennent du stockage local, alimenté au premier lancement par le jeu de démonstration.
-            await Seeder.EnsureSeededAsync();
-            var farms = (await Repository.GetFarmsAsync()).ToDictionary(farm => farm.Id);
-            var visits = (await Repository.GetVisitsByDateAsync(today))
-                .Where(visit => farms.ContainsKey(visit.FarmId))
-                .OrderBy(visit => visit.FarmId, StringComparer.Ordinal);
-
-            var result = new List<Stop>();
-            foreach (var visit in visits)
-            {
-                var grid = DailyActions.Compute(await Repository.GetCowsByFarmAsync(visit.FarmId), today, Thresholds);
-                var progress = VisitProgresses.Of(await Repository.GetVisitRecordsAsync(visit.Id));
-                result.Add(new Stop(visit, farms[visit.FarmId], grid.Items.Count, grid.Items.Count(item => item.Urgency == Urgency.Urgent), progress));
-            }
-
-            stops = result;
+            snapshot = await Provider.LoadAsync();
         }
         catch (StorageUnavailableException exception)
         {
@@ -120,11 +76,5 @@
         }
     }
 
-    private static string StateLabel(Stop stop, bool isNext) =>
-        stop.Progress == VisitProgress.InProgress ? "En cours" : isNext ? "Suivante" : "En attente";
-
-    private static string StateClass(Stop stop, bool isNext) =>
-        stop.Progress == VisitProgress.InProgress ? "state--progress" : isNext ? "state--next" : "state--waiting";
-
-    private sealed record Stop(Visit Visit, Farm Farm, int ToSee, int Urgent, VisitProgress Progress);
+    private void Simulate() => message = DemoMessage;
 }

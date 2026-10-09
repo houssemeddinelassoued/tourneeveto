@@ -53,14 +53,27 @@
             <p class="saved" role="status">@saveStatus</p>
         }
 
-        <div class="sections" role="group" aria-label="Rubriques du bilan">
-            @foreach (var (section, index) in Result.Sections.Select((section, index) => (section, index)))
-            {
-                <button type="button" class="section-tab section-tab--@Tone(section.Level)" aria-pressed="@(index == current ? "true" : "false")" @onclick="() => current = index">
-                    <span class="section-tab-name">@(index + 1). @section.Section</span>
-                    <span class="section-tab-score">@BiosecurityLabels.Score(section)</span>
-                </button>
-            }
+        var overall = Result;
+        <div class="side">
+            <section class="global-panel" aria-labelledby="global-title">
+                <h2 class="global-title" id="global-title">Indice global</h2>
+                @if (overall.OverallScore is int globalScore)
+                {
+                    <p class="global-value global-value--@BiosecurityLabels.Tone(overall.OverallLevel)">@globalScore %</p>
+                }
+                <p class="global-level">@BiosecurityLabels.Risk(overall.OverallLevel)</p>
+                <p class="global-answered">@overall.AnsweredCount / @overall.QuestionCount questions renseignées</p>
+            </section>
+
+            <div class="sections" role="group" aria-label="Rubriques du bilan">
+                @foreach (var (section, index) in Result.Sections.Select((section, index) => (section, index)))
+                {
+                    <button type="button" class="section-tab section-tab--@Tone(section.Level)" aria-pressed="@(index == current ? "true" : "false")" @onclick="() => current = index">
+                        <span class="section-tab-name">@(index + 1). @section.Section</span>
+                        <span class="section-tab-score">@BiosecurityLabels.Score(section)</span>
+                    </button>
+                }
+            </div>
         </div>
 
         @if (Result.Sections.ElementAtOrDefault(current) is { } shown)
@@ -204,11 +217,5 @@
         }
     }
 
-    private static string Tone(RiskLevel level) => level switch
-    {
-        RiskLevel.Low => "ok",
-        RiskLevel.Moderate => "warning",
-        RiskLevel.High => "urgent",
-        _ => "neutral",
-    };
+    private static string Tone(RiskLevel level) => BiosecurityLabels.Tone(level);
 }

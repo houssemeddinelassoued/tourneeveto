@@ -1,0 +1,53 @@
+@using TourneeVeto.Domain.Visits
+@implements IDisposable
+@inject NavigationManager Navigation
+
+@* Sélecteur d'élevage compact de la barre du haut (maquettes tablette) : change l'élevage de l'écran courant
+   (grille de régie, bilan, rapport), ou ouvre sa grille de régie depuis les autres écrans. *@
+@if (Farms.Count > 0)
+{
+    <div class="root">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M3 20V10l9-6 9 6v10zM9 20v-6h6v6" />
+        </svg>
+        <select class="select" aria-label="Élevage" value="@Current" @onchange="OnChange">
+            @foreach (var farm in Farms)
+            {
+                <option value="@farm.Id">@farm.Name</option>
+            }
+        </select>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<Farm> Farms { get; set; } = [];
+
+    private string? Current
+    {
+        get
+        {
+            var (_, farmId) = FarmRoute.Parse(Navigation.ToBaseRelativePath(Navigation.Uri));
+            return Farms.Any(farm => farm.Id == farmId) ? farmId : Farms.FirstOrDefault()?.Id;
+        }
+    }
+
+    protected override void OnInitialized() => Navigation.LocationChanged += OnLocationChanged;
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args) =>
+        InvokeAsync(StateHasChanged);
+
+    private void OnChange(ChangeEventArgs args)
+    {
+        var farmId = args.Value?.ToString();
+        if (string.IsNullOrEmpty(farmId))
+        {
+            return;
+        }
+
+        var (section, _) = FarmRoute.Parse(Navigation.ToBaseRelativePath(Navigation.Uri));
+        Navigation.NavigateTo($"{section ?? "regie"}/{farmId}");
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

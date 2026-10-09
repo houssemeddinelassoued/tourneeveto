@@ -28,4 +28,13 @@ public static class BiosecurityLabels
 
     public static string Score(SectionResult section) =>
         section.Score is int score ? $"{Risk(section.Level)} · {score}/100" : Risk(section.Level);
+
+    /// <summary>Teinte d'un niveau de risque (classes CSS ok, warning, urgent, neutral).</summary>
+    public static string Tone(RiskLevel level) => level switch
+    {
+        RiskLevel.Low => "ok",
+        RiskLevel.Moderate => "warning",
+        RiskLevel.High => "urgent",
+        _ => "neutral",
+    };
 }

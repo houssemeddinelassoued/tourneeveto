@@ -1,0 +1,47 @@
+/* FarmSelector — barre du haut compacte (< 1024 px), tablette d'abord.
+   Couleurs, espacements et rayons : uniquement les variables de tokens.css. */
+
+.root {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    min-block-size: var(--touch-target);
+    padding-inline: var(--space-sm);
+    border-radius: var(--radius-lg);
+    background: var(--color-info-surface);
+    color: var(--color-on-info-surface);
+}
+
+.icon {
+    flex: none;
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.select {
+    min-inline-size: 0;
+    max-inline-size: 11rem;
+    min-block-size: var(--touch-target);
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: var(--font-label-lg);
+    text-overflow: ellipsis;
+}
+
+.select:focus-visible {
+    outline: var(--focus-ring-width) solid var(--color-focus);
+    outline-offset: var(--border-width-strong);
+}
+
+@media (max-width: 767.98px) {
+    .select {
+        max-inline-size: 7.5rem;
+        font: var(--font-label-md);
+    }
+}

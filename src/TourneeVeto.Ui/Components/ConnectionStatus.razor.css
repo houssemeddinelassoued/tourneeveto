@@ -73,3 +73,47 @@
         display: block;
     }
 }
+
+/* Pastille compacte (barre du haut, < 1024 px) : un texte court, le texte complet est réservé aux lecteurs d'écran. */
+.root--pill {
+    min-block-size: var(--touch-target);
+    padding: var(--space-xs) var(--space-sm);
+    white-space: nowrap;
+}
+
+.root--pill .label {
+    font: var(--font-label-sm);
+    letter-spacing: var(--letter-spacing-label-sm);
+}
+
+.sr {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* Carte « Synchronisé » de la barre latérale (poste). */
+.root--card {
+    inline-size: 100%;
+    box-sizing: border-box;
+}
+
+.eyebrow {
+    font: var(--font-label-sm);
+    letter-spacing: var(--letter-spacing-label-sm);
+    text-transform: uppercase;
+}
+
+.root--card .detail,
+.full {
+    display: block;
+    color: var(--color-text-muted);
+    font: var(--font-body-sm);
+}
+
+.full {
+    font: var(--font-label-sm);
+}

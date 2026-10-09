@@ -141,6 +141,8 @@ ipch/
 
 # Visual Studio Trace Files
 *.e2e
+# Le projet de tests de parcours tests/TourneeVeto.E2E/ n'est pas une trace Visual Studio.
+!tests/TourneeVeto.E2E/
 
 # TFS 2012 Local Workspace
 $tf/

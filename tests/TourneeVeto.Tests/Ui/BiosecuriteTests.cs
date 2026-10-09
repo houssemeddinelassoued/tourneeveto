@@ -81,6 +81,35 @@ public class BiosecuriteTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
+    public void Panneau_indice_global_sans_reponse_est_non_evalue()
+    {
+        var cut = RenderFarm();
+
+        Assert.Equal("Indice global", cut.Find(".global-title").TextContent);
+        Assert.Equal("Non évaluée", cut.Find(".global-level").TextContent);
+        Assert.Equal("0 / 15 questions renseignées", cut.Find(".global-answered").TextContent);
+        Assert.Empty(cut.FindAll(".global-value"));
+    }
+
+    [Fact]
+    public void Panneau_indice_global_reflete_les_reponses_et_precede_les_rubriques()
+    {
+        var cut = RenderFarm();
+        var first = BiosecurityQuestionnaire.Default[0];
+        var second = BiosecurityQuestionnaire.Default[1];
+
+        cut.FindAll($"input[name=q-{first.Id}]")[0].Change(true);    // Oui
+        cut.FindAll($"input[name=q-{second.Id}]")[1].Change(true);   // Partiel
+
+        var expected = BiosecurityScore.Compute(BiosecurityQuestionnaire.Default,
+            new Dictionary<string, Answer> { [first.Id] = Answer.Yes, [second.Id] = Answer.Partial });
+        Assert.Equal($"{expected.OverallScore} %", cut.Find(".global-value").TextContent.Trim());
+        Assert.Equal(TourneeVeto.Ui.Formatting.BiosecurityLabels.Risk(expected.OverallLevel), cut.Find(".global-level").TextContent);
+        Assert.Equal("2 / 15 questions renseignées", cut.Find(".global-answered").TextContent);
+        Assert.NotNull(cut.Find(".side > .global-panel + .sections"));
+    }
+
+    [Fact]
     public void Rubrique_suivante_affiche_ses_propres_questions()
     {
         var cut = RenderFarm();
@@ -116,6 +145,25 @@ public class BiosecuriteTests : BunitContext, IAsyncLifetime
 
         Assert.True(cut.FindAll($"input[name=q-{question.Id}]")[1].HasAttribute("checked"));
         Assert.NotEqual("Non évaluée", cut.FindAll(".section-tab-score")[0].TextContent);
+    }
+
+    [Fact]
+    public void Rubrique_entierement_Sans_objet_reste_non_evaluee_et_sans_pratique_prioritaire()
+    {
+        var cut = RenderFarm();
+        var firstSection = BiosecurityQuestionnaire.Default.Where(question => question.Section == BiosecurityQuestionnaire.Default[0].Section).ToList();
+
+        foreach (var question in firstSection)
+        {
+            cut.FindAll($"input[name=q-{question.Id}]")[3].Change(true);   // Sans objet (S.O.)
+        }
+
+        cut.WaitForAssertion(() => Assert.Equal(firstSection.Count, module.Invocations["putBiosecurity"].Count));
+        Assert.Equal("Non évaluée", cut.FindAll(".section-tab-score")[0].TextContent);
+        Assert.Contains("level--neutral", cut.Find(".section-meta .level").ClassName);
+        Assert.Equal("Non évaluée", cut.Find(".section-meta .level").TextContent);
+        Assert.Equal("Aucune pratique à améliorer pour l'instant : répondez aux questions de chaque rubrique.", cut.Find(".priorities .status").TextContent);
+        Assert.All(cut.FindAll(".section-tab-score"), score => Assert.Equal("Non évaluée", score.TextContent));
     }
 
     [Fact]

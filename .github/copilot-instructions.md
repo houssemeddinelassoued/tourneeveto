@@ -18,8 +18,12 @@ create-component (.github/skills/create-component, version Claude dans .claude/s
 indexeddb-interop (.github/skills/indexeddb-interop, version Claude dans .claude/skills) : accès à IndexedDB (module JS isolé + IVisitRepository), exemples qui fonctionnent.
 
 ## Agents
-architect (choix techniques, ADR, schémas) · developer (réalise une tâche du plan) · tester (écrit et lance les tests, uniquement dans tests/) · refactorer (simplifie, comportement inchangé) · security-reviewer (audite les fichiers modifiés, ne corrige rien).
+architect (choix techniques, ADR, schémas) · developer (réalise une tâche du plan) · tester (écrit et lance les tests, uniquement dans tests/) · refactorer (simplifie, comportement inchangé) · security-reviewer (audite les fichiers modifiés, ne corrige rien) · qa-explorer (explore l'application dans un vrai navigateur via le serveur MCP Playwright, ne modifie rien) · feature-lead (pilote une feature et délègue aux autres).
 Tous terminent par le même compte rendu de 5 lignes : Statut, Fichiers, Tests, Points ouverts, Recommandation.
+
+## Hooks
+Après chaque modification de fichier par l'agent, .github/hooks/format-edited-file.ps1 formate les .cs modifiés (dotnet format whitespace, environ 5 s). Il est déclaré dans .github/hooks/format.json (Copilot) et dans .claude/settings.json (Claude Code).
+Les règles de style et d'analyse ne sont pas appliquées par le hook : lancer dotnet format --verify-no-changes avant de committer. Les .razor ne sont pas formatés.
 
 ## Structure (ADR 0002)
 src/TourneeVeto.Domain/  règles métier pures, sans accès au stockage (aucune dépendance à Blazor, au JS ni au navigateur)

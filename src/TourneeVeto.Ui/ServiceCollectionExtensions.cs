@@ -19,7 +19,9 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton(RegieThresholds.Default);
         services.AddScoped<IVisitRepository, IndexedDbVisitRepository>();
         services.AddScoped<DemoDataSeeder>();
+        services.AddScoped<ShowcaseProvider>();
         services.AddScoped<AppStatusService>();
+        services.AddScoped<ReportPrinter>();
         return services;
     }
 }

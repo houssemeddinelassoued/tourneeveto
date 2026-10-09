@@ -70,6 +70,58 @@
     font: var(--font-label-lg);
 }
 
+/* --- Indice global --- */
+
+.side {
+    display: grid;
+    gap: var(--space-md);
+}
+
+.global-panel {
+    display: grid;
+    gap: var(--space-xs);
+    padding: var(--space-md) var(--space-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+}
+
+.global-title {
+    margin: 0;
+    color: var(--color-text-muted);
+    font: var(--font-label-md);
+    letter-spacing: var(--letter-spacing-label-md);
+    text-transform: uppercase;
+}
+
+.global-value {
+    margin: 0;
+    font: var(--font-display);
+}
+
+.global-value--ok {
+    color: var(--color-ok);
+}
+
+.global-value--warning {
+    color: var(--color-on-warning-surface);
+}
+
+.global-value--urgent {
+    color: var(--color-urgent);
+}
+
+.global-level {
+    margin: 0;
+    font: var(--font-label-lg);
+}
+
+.global-answered {
+    margin: 0;
+    color: var(--color-text-muted);
+    font: var(--font-body-sm);
+}
+
 /* --- Rubriques --- */
 
 .sections {
@@ -341,13 +393,17 @@
 }
 
 @media (min-width: 1024px) {
+    /* Rubriques en liste verticale à gauche, questions et pratiques prioritaires à droite (maquette web). */
     .root {
-        grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+        grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
+        grid-template-areas:
+            "header header"
+            "side main"
+            "side priorities";
         align-items: start;
     }
 
     .header,
-    .sections,
     .root > .error,
     .root > .warning,
     .root > .saved,
@@ -355,12 +411,34 @@
         grid-column: 1 / -1;
     }
 
-    .priorities {
+    .header {
+        grid-area: header;
+    }
+
+    .side {
+        grid-area: side;
         position: sticky;
         inset-block-start: var(--space-lg);
+    }
+
+    .section {
+        grid-area: main;
+    }
+
+    .priorities {
+        grid-area: priorities;
         padding: var(--space-lg);
         border: var(--border-width) solid var(--color-border);
         border-radius: var(--radius-lg);
         background: var(--color-surface);
+    }
+
+    .sections {
+        flex-direction: column;
+        flex-wrap: nowrap;
+    }
+
+    .section-tab {
+        inline-size: 100%;
     }
 }

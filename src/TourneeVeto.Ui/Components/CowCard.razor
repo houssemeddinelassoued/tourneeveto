@@ -24,6 +24,10 @@
                 }
             </h3>
             <span class="cow-card__lactation">@LactationLabel</span>
+            @if (!string.IsNullOrWhiteSpace(NationalId))
+            {
+                <p class="cow-card__national">@NationalId</p>
+            }
         </div>
 
         <p class="cow-card__status">
@@ -44,6 +48,10 @@
 
     <section class="cow-card__action" aria-labelledby="@ActionId">
         <h4 class="cow-card__action-title" id="@ActionId">@ActionTexts.Title</h4>
+        @if (!string.IsNullOrWhiteSpace(Statement))
+        {
+            <p class="cow-card__statement">Statut : @Statement</p>
+        }
         @if (Anomaly is not null && Action is not null)
         {
             <p class="cow-card__anomaly">Anomalie : @AnomalyLabel</p>
@@ -59,7 +67,7 @@
         <dl class="cow-card__metrics">
             @foreach (var metric in Metrics)
             {
-                <div class="cow-card__metric">
+                <div class="cow-card__metric @(metric.Alert ? "cow-card__metric--alert" : null)">
                     <dt>@metric.Label</dt>
                     <dd>@metric.Value</dd>
                 </div>
@@ -133,6 +141,14 @@
     /// <summary>Échéance déjà formatée (ex. « J-2 », « IA J+35 »).</summary>
     [Parameter]
     public string? DueLabel { get; set; }
+
+    /// <summary>Identifiant national fictif, affiché sous le nom.</summary>
+    [Parameter]
+    public string? NationalId { get; set; }
+
+    /// <summary>Phrase de statut du motif, affichée dans l'encadré (« Statut : … »).</summary>
+    [Parameter]
+    public string? Statement { get; set; }
 
     /// <summary>Consigne ou contexte de l'action.</summary>
     [Parameter]

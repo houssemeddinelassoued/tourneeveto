@@ -19,5 +19,20 @@
       "Read(**/*.map)",
       "Read(./design/stitch/**/*.html)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -NonInteractive -File \"$CLAUDE_PROJECT_DIR/.github/hooks/format-edited-file.ps1\"",
+            "timeout": 60,
+            "statusMessage": "Formatage du fichier C#…"
+          }
+        ]
+      }
+    ]
   }
 }

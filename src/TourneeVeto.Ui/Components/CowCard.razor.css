@@ -91,7 +91,7 @@
 .cow-card__name {
     margin: 0;
     font: var(--font-headline-md);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
 }
 
 .cow-card__select {
@@ -340,34 +340,48 @@
     white-space: nowrap;
 }
 
-/* --- Téléphone : statut sous l'identité, numéro plus compact --- */
+/* --- Téléphone : numéro plus compact ; les mesures ne servent qu'à la liste du poste --- */
+
+@media (max-width: 1023.98px) {
+    .cow-card__metrics {
+        display: none;
+    }
+}
 
 @media (max-width: 767.98px) {
     .cow-card {
         padding: var(--space-md);
     }
 
-    .cow-card__header {
-        grid-template-columns: auto 1fr;
-    }
-
     .cow-card__number {
-        min-inline-size: calc(var(--touch-target-primary) * 1.5);
-        min-block-size: calc(var(--touch-target-primary) * 1.5);
+        min-inline-size: calc(var(--touch-target-primary) * 1.25);
+        min-block-size: calc(var(--touch-target-primary) * 1.25);
     }
 
     .cow-card__number-value {
         font: var(--font-headline-md);
     }
 
-    .cow-card__status {
-        grid-column: 1 / -1;
-        justify-content: flex-start;
-    }
-
     .cow-card__action {
         padding: var(--space-sm) var(--space-md);
     }
+}
+
+.cow-card__national {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--color-text-muted);
+    font: var(--font-body-sm);
+    letter-spacing: var(--letter-spacing-label-sm);
+}
+
+.cow-card__statement {
+    margin: var(--space-xs) 0 0;
+    font: var(--font-body-lg);
+}
+
+.cow-card__metric--alert dd {
+    color: var(--color-on-urgent-surface);
 }
 
 /* --- Poste (maquette Web) : liseré d'urgence, numéro en ligne, boutons compacts --- */
@@ -404,12 +418,23 @@
         font: var(--font-headline-md);
     }
 
-    .cow-card__detail {
-        font: var(--font-body-md);
+    /* La liste du poste est compacte : mesures et pied de carte ; l'action, la note et le détail sont dans la fiche de droite. */
+    .cow-card__actions,
+    .cow-card__note,
+    .cow-card__statement,
+    .cow-card__detail,
+    .cow-card__anomaly {
+        display: none;
     }
 
-    .cow-card__actions {
-        justify-content: flex-end;
+    .cow-card__action {
+        padding: 0;
+        background: none;
+    }
+
+    .cow-card__action-title {
+        color: var(--color-text-muted);
+        font: var(--font-body-sm);
     }
 
     .cow-card__primary {
@@ -428,7 +453,7 @@
 
 /* --- Carte étroite (ex. deux colonnes sur poste) : les badges passent sous le nom pour ne jamais le couper --- */
 
-@container (max-width: 34rem) {
+@container (max-width: 24rem) {
     .cow-card__header {
         grid-template-columns: auto 1fr;
     }

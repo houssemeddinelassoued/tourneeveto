@@ -1,0 +1,244 @@
+@using System.Globalization
+@using TourneeVeto.Domain.Regie
+@using TourneeVeto.Domain.Showcase
+@using TourneeVeto.Ui.Formatting
+
+@* Tournée sur poste (maquette web/tournee.png) : liste d'étapes à gauche, détail de la visite sélectionnée à droite ; visible dès 1024 px. *@
+<div class="root">
+    <div class="list">
+        <ol class="dstops" role="list">
+            @foreach (var stop in Stops)
+            {
+                var info = stop.Info;
+                var isSelected = Selected is not null && Selected.Info.FarmId == info.FarmId;
+                <li class="dstop @(isSelected ? "dstop--selected" : null)" @key="stop.Visit.Id">
+                    <p class="dstop-top">
+                        <span class="step-badge">Étape @(stop.Index + 1)</span>
+                        <span class="dstop-time">@ShowcaseLabels.Time(info.ArrivalTime)</span>
+                        <span class="dstop-km">· @ShowcaseLabels.Km(info.DistanceKm)</span>
+                        <span class="state @TourLabels.DeskStatusClass(stop.Progress, stop.Urgent)">@TourLabels.DeskStatus(stop.Progress, stop.Urgent)</span>
+                    </p>
+                    <h3 class="dstop-name">
+                        <button type="button" class="dstop-select" aria-current="@(isSelected ? "true" : null)" @onclick="() => OnSelect.InvokeAsync(info.FarmId)">@info.FarmName</button>
+                    </h3>
+                    <p class="dstop-who">@info.Farmer · @info.Municipality</p>
+                    <div class="dstop-motive">
+                        <p class="dstop-motive-title">@info.Tags[0]</p>
+                        <p class="dstop-motive-text">@info.MotiveDetail</p>
+                    </div>
+                    <p class="dstop-foot">
+                        <span>@info.Footer</span>
+                        <span>@info.HerdSize têtes · @ShowcaseLabels.Duration(info.VisitMinutes)</span>
+                    </p>
+                </li>
+            }
+        </ol>
+
+        @if (Day.Farms.Count > 0)
+        {
+            <section class="optim" aria-labelledby="optim-title">
+                <div class="optim-head">
+                    <h2 class="optim-title" id="optim-title">Optimisation de l'itinéraire</h2>
+                    <span class="chip chip--ok">Ordre optimal calculé</span>
+                </div>
+                <div class="optim-body">
+                    <p class="optim-end"><span class="optim-label">Départ @Day.Tour.DepartFrom</span><span class="optim-time">@ShowcaseLabels.Time(Day.Tour.Departure)</span></p>
+                    <svg class="optim-route" viewBox="0 0 200 40" aria-hidden="true" focusable="false">
+                        <path d="@RoutePath" fill="none" />
+                        @foreach (var x in Dots)
+                        {
+                            <circle cx="@Num(x)" cy="@Num(Y(x))" r="4" />
+                        }
+                    </svg>
+                    <p class="optim-end optim-end--right"><span class="optim-label">Retour @Day.Tour.DepartFrom</span><span class="optim-time">@ShowcaseLabels.Time(Day.Tour.Return)</span></p>
+                </div>
+            </section>
+        }
+    </div>
+
+    @if (Selected is { } current)
+    {
+        var info = current.Info;
+        var rows = FarmProtocol.Select(new RegieGrid(current.Items, false));
+        var shown = showAll ? rows : [.. rows.Take(PreviewCount)];
+        <div class="detail">
+            <section class="card" aria-labelledby="detail-title">
+                <p class="selected-line">
+                    <span class="chip chip--primary">Visite sélectionnée</span>
+                    <span class="selected-id">@info.Identifier</span>
+                </p>
+                <h2 class="detail-title" id="detail-title">@info.FarmName</h2>
+                <p class="detail-text">@info.Description</p>
+                <a class="button button--primary" href="@($"regie/{info.FarmId}")">Démarrer la consultation</a>
+
+                <dl class="contacts">
+                    <div class="contact"><dt>Éleveur</dt><dd>@info.Farmer</dd></div>
+                    <div class="contact"><dt>Téléphone direct</dt><dd>@info.Phone</dd></div>
+                    <div class="contact"><dt>Localisation</dt><dd>@info.Address</dd></div>
+                </dl>
+
+                <div class="map">
+                    <svg class="map-art" viewBox="0 0 400 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+                        <rect width="400" height="140" class="map-ground" />
+                        <path d="M-10 110 C80 90 120 130 200 100 S330 60 410 80" class="map-road" />
+                        <path d="M60 -10 C80 40 130 60 150 150" class="map-road map-road--minor" />
+                        <path d="M260 -10 C250 40 300 80 330 150" class="map-road map-road--minor" />
+                        <path d="M200 100 L270 62" class="map-route" />
+                        <circle cx="270" cy="62" r="9" class="map-pin" />
+                    </svg>
+                    <div class="map-overlay">
+                        <p class="map-eyebrow">Accès cour de ferme</p>
+                        <p class="map-text">@info.YardAccess</p>
+                        <button type="button" class="button button--map" @onclick="OnSimulate">Lancer Waze / Maps</button>
+                    </div>
+                </div>
+
+                <div class="quick">
+                    <button type="button" class="button button--soft" @onclick="OnSimulate">Notifier arrivée (SMS)</button>
+                    <a class="button button--soft" href="@($"regie/{info.FarmId}")">Fiche complète cheptel</a>
+                    <button type="button" class="button button--soft" @onclick="OnSimulate">Ordonnancier élevage</button>
+                </div>
+            </section>
+
+            <section class="card" aria-labelledby="protocol-title">
+                <div class="protocol-head">
+                    <div>
+                        <p class="eyebrow">Protocole actif</p>
+                        <h2 class="protocol-title" id="protocol-title">@info.Protocol</h2>
+                    </div>
+                    <span class="chip chip--info">@rows.Count vache(s) sélectionnée(s)</span>
+                </div>
+                <p class="instruction"><strong>Consigne préalable du praticien</strong> @info.Instruction</p>
+
+                @if (rows.Count == 0)
+                {
+                    <p class="detail-text">Aucune vache à voir dans cet élevage aujourd'hui.</p>
+                }
+                else
+                {
+                    <div class="table-wrap">
+                        <table class="cows">
+                            <caption class="sr">Vaches du protocole actif</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Boucle / tag</th>
+                                    <th scope="col">Nom</th>
+                                    <th scope="col">Stade</th>
+                                    <th scope="col">Dernière IA</th>
+                                    <th scope="col">Statut prévu</th>
+                                    <th scope="col">Action rapide</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in shown)
+                                {
+                                    <tr @key="row.Cow.Id">
+                                        <th scope="row" class="cow-id">@row.Cow.Id</th>
+                                        <td>@row.Cow.Name</td>
+                                        <td>@TourLabels.Stage(row)</td>
+                                        <td>@ShowcaseLabels.ShortDate(row.Cow.LastInsemination)</td>
+                                        <td><span class="chip chip--info">@TourLabels.Planned(row)</span></td>
+                                        <td><a class="quick-action" href="@($"regie/{info.FarmId}?q={Uri.EscapeDataString(row.Cow.Id)}")" aria-label="@TourLabels.QuickAction(row) : @row.Cow.Name">@TourLabels.QuickAction(row)</a></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="more">
+                        <span>Affichage de @shown.Count sur @rows.Count animaux pré-chargés</span>
+                        @if (rows.Count > PreviewCount)
+                        {
+                            <button type="button" class="link-button" aria-expanded="@(showAll ? "true" : "false")" @onclick="() => showAll = !showAll">
+                                @(showAll ? "Réduire la liste" : $"Afficher les {rows.Count - PreviewCount} autres vaches →")
+                            </button>
+                        }
+                    </p>
+                }
+            </section>
+
+            <div class="pair">
+                <section class="card" aria-labelledby="history-title">
+                    <div class="pair-head">
+                        <h2 class="pair-title" id="history-title">Historique récent</h2>
+                        <span class="pair-aside">Dernier : @ShowcaseLabels.ShortDate(info.History.Max(entry => entry.Date))</span>
+                    </div>
+                    <ul class="history" role="list">
+                        @foreach (var entry in info.History)
+                        {
+                            <li class="history-item">
+                                <p class="history-head"><strong>@entry.Title</strong><span class="chip chip--ok">@entry.Badge</span></p>
+                                <p class="history-text">@entry.Text</p>
+                            </li>
+                        }
+                    </ul>
+                </section>
+
+                <section class="card" aria-labelledby="telemetry-title">
+                    <div class="pair-head">
+                        <h2 class="pair-title" id="telemetry-title">Télémétrie Robot</h2>
+                        <span class="chip chip--ok">Données simulées</span>
+                    </div>
+                    <div class="metrics">
+                        <p class="metric"><span class="metric-label">Production moy.</span><span class="metric-value">@info.Telemetry.ProductionLitersPerDay.ToString("0.0", French) L/j</span></p>
+                        <p class="metric"><span class="metric-label">CCS moyen</span><span class="metric-value">@info.Telemetry.SccThousands k</span></p>
+                    </div>
+                    <p class="activity">
+                        <strong>Activité &amp; rumination (7 j) : @Delta(info.Telemetry.ActivityDeltaPercent) vs moy.</strong>
+                        @info.Telemetry.ActivityNote
+                    </p>
+                </section>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private const int PreviewCount = 4;
+
+    private static readonly CultureInfo French = CultureInfo.GetCultureInfo("fr-CA");
+
+    private string? shownFor;
+    private bool showAll;
+
+    /// <summary>Étapes à afficher (déjà filtrées), avec leur rang dans la tournée complète.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TourStop> Stops { get; set; } = [];
+
+    /// <summary>Journée de démonstration (départ, retour, étapes).</summary>
+    [Parameter, EditorRequired]
+    public ShowcaseDay Day { get; set; } = default!;
+
+    /// <summary>Élevage sélectionné ; la première étape visible par défaut.</summary>
+    [Parameter]
+    public string? SelectedId { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnSelect { get; set; }
+
+    [Parameter]
+    public EventCallback OnSimulate { get; set; }
+
+    private TourStop? Selected => Stops.FirstOrDefault(stop => stop.Info.FarmId == SelectedId) ?? Stops.FirstOrDefault();
+
+    protected override void OnParametersSet()
+    {
+        // La liste complète des vaches se replie quand on change d'élevage.
+        if (shownFor != Selected?.Info.FarmId)
+        {
+            (shownFor, showAll) = (Selected?.Info.FarmId, false);
+        }
+    }
+
+    // Tracé stylisé du circuit : une courbe douce, un point par étape (présentation uniquement).
+    private IEnumerable<double> Dots =>
+        Day.Farms.Select((_, index) => Day.Farms.Count == 1 ? 100.0 : 20.0 + index * 160.0 / (Day.Farms.Count - 1));
+
+    private static double Y(double x) => 20 + 8 * Math.Sin(x / 22);
+
+    private static string Num(double value) => value.ToString("0.#", CultureInfo.InvariantCulture);
+
+    private string RoutePath =>
+        string.Join(" ", Enumerable.Range(0, 21).Select(step => step * 10.0).Select((x, index) => $"{(index == 0 ? "M" : "L")}{Num(x)} {Num(Y(x))}"));
+
+    private static string Delta(int percent) => percent >= 0 ? $"+{percent} %" : $"−{-percent} %";
+}

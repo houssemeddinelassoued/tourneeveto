@@ -1,0 +1,32 @@
+@using TourneeVeto.Ui.Formatting
+@using TourneeVeto.Ui.Platform
+@implements IDisposable
+@inject AppStatusService AppStatus
+
+@* Bandeau du mode hors ligne de la tournée sur tablette (maquette tablette/tournee.png) : reflète l'état réel du cache. *@
+<div class="root root--@(Ready ? "ok" : "warning")" role="status">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 11a3.5 3.5 0 0 0 1 7z" /></svg>
+    <p class="text">
+        <span class="title">@(Ready ? "Mode Hors-ligne actif" : "Préparation du mode hors ligne")</span>
+        <span class="detail">@ShowcaseLabels.Count(Farms, "élevage synchronisé", "élevages synchronisés")</span>
+    </p>
+    <span class="pill">@(Ready ? "100 % Prêt" : "En cours")</span>
+</div>
+
+@code {
+    /// <summary>Nombre d'élevages de la tournée disponibles sur l'appareil.</summary>
+    [Parameter]
+    public int Farms { get; set; }
+
+    private bool Ready => AppStatus.Current.OfflineReady;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppStatus.Changed += OnStatusChanged;
+        await AppStatus.StartAsync();
+    }
+
+    private void OnStatusChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => AppStatus.Changed -= OnStatusChanged;
+}

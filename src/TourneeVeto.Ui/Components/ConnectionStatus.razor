@@ -3,16 +3,54 @@
 @inject AppStatusService AppStatus
 
 @* Stories 3.2 et 3.3 : état de connexion et disponibilité hors ligne, en texte (jamais par la seule couleur). *@
-<p class="root root--@Tone" role="status">
+<p class="root root--@Tone root--@Variant" role="status">
     <span class="dot" aria-hidden="true"></span>
-    <span class="text">
-        <span class="label">@Label</span>
-        <span class="detail">@Detail</span>
-    </span>
+    @if (Variant == "pill")
+    {
+        @* Pastille compacte de la barre du haut : le texte complet reste lu par les lecteurs d'écran. *@
+        <span class="label" aria-hidden="true">@PillLabel</span>
+        <span class="sr">@Label</span>
+    }
+    else if (Variant == "card")
+    {
+        <span class="text">
+            <span class="eyebrow">@CardTitle</span>
+            <span class="detail">@CardDetail</span>
+            <span class="full">@Label</span>
+        </span>
+    }
+    else
+    {
+        <span class="text">
+            <span class="label">@Label</span>
+            <span class="detail">@Detail</span>
+        </span>
+    }
 </p>
 
 @code {
+    /// <summary>« full » (libellé et détail), « pill » (pastille compacte de la barre du haut) ou « card » (carte de la barre latérale).</summary>
+    [Parameter]
+    public string Variant { get; set; } = "full";
+
     private AppStatus Current => AppStatus.Current;
+
+    private string PillLabel => (Current.Online, Current.OfflineReady) switch
+    {
+        (true, true) => "En ligne",
+        (false, true) => "Hors-ligne (Prêt)",
+        (true, false) => "En ligne (mise en cache…)",
+        (false, false) => "Hors-ligne",
+    };
+
+    private string CardTitle => (Current.Online, Current.OfflineReady) switch
+    {
+        (_, true) => "Synchronisé",
+        (true, false) => "Synchronisation…",
+        (false, false) => "Non synchronisé",
+    };
+
+    private string CardDetail => Current.OfflineReady ? "Élevages & cheptels à jour" : Detail;
 
     private string Tone => (Current.Online, Current.OfflineReady) switch
     {

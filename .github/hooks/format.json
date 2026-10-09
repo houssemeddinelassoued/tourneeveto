@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "pwsh -NoProfile -NonInteractive -File .github/hooks/format-edited-file.ps1",
+        "windows": "pwsh -NoProfile -NonInteractive -File .github\\hooks\\format-edited-file.ps1",
+        "timeout": 60
+      }
+    ]
+  }
+}

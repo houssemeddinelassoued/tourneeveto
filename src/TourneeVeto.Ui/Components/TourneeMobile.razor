@@ -1,0 +1,118 @@
+@using TourneeVeto.Domain.Showcase
+@using TourneeVeto.Ui.Formatting
+
+@* Tournée sur tablette et téléphone (maquette tablette/tournee.png) : visible sous 1024 px. *@
+<div class="root">
+    <ol class="stops" role="list">
+        @foreach (var stop in Stops)
+        {
+            var info = stop.Info;
+            <li class="stop @(stop.IsNext ? "stop--next" : null)" @key="stop.Visit.Id">
+                <div class="head">
+                    <span class="time">@ShowcaseLabels.Time(info.ArrivalTime)</span>
+                    <div class="head-text">
+                        <p class="states">
+                            <span class="state @TourLabels.StateClass(stop.Progress, stop.IsNext)">Étape @(stop.Index + 1) · @TourLabels.State(stop.Progress, stop.IsNext)</span>
+                            @if (stop.Urgent > 0)
+                            {
+                                <span class="state state--urgent">Vigilance : @stop.Urgent urgence(s)</span>
+                            }
+                        </p>
+                        <h2 class="farm">@info.FarmName</h2>
+                    </div>
+                    @if (stop.IsNext)
+                    {
+                        <button type="button" class="icon-button" aria-label="Itinéraire vers @info.FarmName (simulé)" @onclick="OnSimulate">
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3l7 17-7-4-7 4z" /></svg>
+                        </button>
+                    }
+                    else
+                    {
+                        <span class="icon-mark @(stop.Urgent > 0 ? "icon-mark--urgent" : null)" aria-hidden="true">
+                            @if (stop.Urgent > 0)
+                            {
+                                <svg class="icon" viewBox="0 0 24 24" focusable="false"><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17v.5" /></svg>
+                            }
+                            else
+                            {
+                                <svg class="icon" viewBox="0 0 24 24" focusable="false"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" /></svg>
+                            }
+                        </span>
+                    }
+                </div>
+                <p class="place">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" />
+                    </svg>
+                    @info.Municipality · @stop.ToSee vache(s) à voir (@ShowcaseLabels.Km(info.DistanceKm))
+                </p>
+                @if (stop.IsNext)
+                {
+                    <p class="identifier">Élevage @info.Identifier</p>
+                }
+                <div class="motive">
+                    <p class="motive-label">Motif@(stop.IsNext ? " principal d'intervention" : null)</p>
+                    <p class="reason">@info.Reason</p>
+                </div>
+                <p class="chips">
+                    @foreach (var tag in info.Tags)
+                    {
+                        <span class="chip">@tag</span>
+                    }
+                </p>
+                <a class="action @(stop.IsNext ? "action--primary" : "action--secondary")" href="@($"regie/{info.FarmId}")">
+                    @(stop.IsNext ? "Démarrer la visite" : "Voir l'élevage")
+                </a>
+            </li>
+        }
+
+        @if (ShowAlert && Alert is not null)
+        {
+            <li class="stop stop--alert">
+                <div class="head">
+                    <span class="time">@ShowcaseLabels.Time(Alert.Time)</span>
+                    <div class="head-text">
+                        <p class="states"><span class="state state--urgent">Étape @(Stops.Count + 1) · Fin de tournée</span></p>
+                        <h2 class="alert-title">@Alert.Title</h2>
+                    </div>
+                    <span class="icon-mark icon-mark--urgent" aria-hidden="true">
+                        <svg class="icon" viewBox="0 0 24 24" focusable="false"><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17v.5" /></svg>
+                    </span>
+                </div>
+                <p class="place">@Alert.FarmName</p>
+                <div class="motive">
+                    <p class="motive-label">Urgence signalée (fictive)</p>
+                    <p class="reason">@Alert.Description</p>
+                </div>
+                <button type="button" class="action action--secondary" aria-label="Rappeler l'éleveur au @Alert.Phone (simulé)" @onclick="OnSimulate">Rappeler l'éleveur</button>
+            </li>
+        }
+    </ol>
+
+    <details class="preview">
+        <summary>Aperçu : Cas sans tournée / Repos</summary>
+        <p>
+            Les jours sans visite prévue, la tournée affiche « Aucune visite prévue aujourd'hui » : la grille de régie et le bilan
+            biosécurité restent consultables, et les urgences peuvent toujours être saisies.
+        </p>
+    </details>
+
+    <button type="button" class="emergency" @onclick="OnSimulate">+ Appel d'urgence sanitaire</button>
+</div>
+
+@code {
+    /// <summary>Étapes à afficher (déjà filtrées), avec leur rang dans la tournée complète.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TourStop> Stops { get; set; } = [];
+
+    /// <summary>Urgence fictive de fin de tournée.</summary>
+    [Parameter]
+    public UrgentAlert? Alert { get; set; }
+
+    /// <summary>Afficher la carte d'urgence (aucun filtre actif).</summary>
+    [Parameter]
+    public bool ShowAlert { get; set; }
+
+    [Parameter]
+    public EventCallback OnSimulate { get; set; }
+}

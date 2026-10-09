@@ -1,12 +1,23 @@
-@* Navigation principale (maquettes Stitch) : onglets en bas sur tablette et téléphone, menu vertical sur poste. *@
+@* Navigation principale (maquettes Stitch) : cinq onglets en bas sur tablette et téléphone, menu vertical sur poste.
+   Chaque lien a un libellé court (onglets) et un libellé long (barre latérale) ; la feuille de style n'en affiche qu'un. *@
 <div class="root">
     <ul class="items" role="list">
         <li>
             <NavLink class="item" href="" Match="NavLinkMatch.All">
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M4 11l8-7 8 7v9H4z" /><path d="M10 20v-6h4v6" />
+                </svg>
+                <span class="label label--short">Accueil</span>
+                <span class="label label--long">Tableau de bord</span>
+            </NavLink>
+        </li>
+        <li>
+            <NavLink class="item" href="tournee" Match="NavLinkMatch.Prefix">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4" />
                 </svg>
-                <span class="label">Tournée du jour</span>
+                <span class="label label--short">Tournée</span>
+                <span class="label label--long">Tournée du jour</span>
             </NavLink>
         </li>
         <li>
@@ -14,7 +25,8 @@
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M4 7l2 2 3-3M4 15l2 2 3-3M12 8h8M12 16h8" />
                 </svg>
-                <span class="label">Grille de régie</span>
+                <span class="label label--short">Grille Régie</span>
+                <span class="label label--long">Grille de régie</span>
             </NavLink>
         </li>
         <li>
@@ -22,7 +34,17 @@
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z" /><path d="M9 12l2 2 4-4" />
                 </svg>
-                <span class="label">Bilan biosécurité</span>
+                <span class="label label--short">Biosécurité</span>
+                <span class="label label--long">Bilan biosécurité</span>
+            </NavLink>
+        </li>
+        <li>
+            <NavLink class="item" href="rapport" Match="NavLinkMatch.Prefix">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M7 3h7l4 4v14H7z" /><path d="M14 3v4h4M9.5 12h6M9.5 16h6" />
+                </svg>
+                <span class="label label--short">Rapport</span>
+                <span class="label label--long">Rapports de visite</span>
             </NavLink>
         </li>
     </ul>

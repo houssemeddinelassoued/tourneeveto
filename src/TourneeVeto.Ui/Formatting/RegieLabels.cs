@@ -1,3 +1,4 @@
+using TourneeVeto.Domain.Herd;
 using TourneeVeto.Domain.Regie;
 
 namespace TourneeVeto.Ui.Formatting;
@@ -26,6 +27,10 @@ public static class RegieLabels
         { Action: RegieAction.PostCalvingCheck or RegieAction.NotInseminated, Days: int days } => $"Vêlage J+{days}",
         _ => null,
     };
+
+    /// <summary>Pastille d'échéance d'une carte : l'échéance du motif, ou le dernier CCS pour un CCS élevé (« 850k sp/mL »).</summary>
+    public static string? Pill(RegieMotive? motive, Cow cow) =>
+        Due(motive) ?? (motive?.Action == RegieAction.HighScc && cow.LastSccThousands is int scc ? $"{scc}k sp/mL" : null);
 
     public static string Urgency(Urgency urgency) => urgency switch
     {

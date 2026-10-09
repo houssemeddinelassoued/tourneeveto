@@ -20,7 +20,36 @@ public enum RiskLevel
 public sealed record SectionResult(string Section, int? Score, RiskLevel Level);
 
 /// <summary>Bilan de biosécurité : sections dans l'ordre du questionnaire et 3 pratiques prioritaires au plus.</summary>
-public sealed record BiosecurityResult(IReadOnlyList<SectionResult> Sections, IReadOnlyList<BiosecurityQuestion> PriorityPractices);
+/// <param name="Sections">Résultat de chaque rubrique, dans l'ordre du questionnaire.</param>
+/// <param name="PriorityPractices">3 pratiques prioritaires au plus.</param>
+/// <param name="AnsweredCount">Nombre de questions du questionnaire qui ont une réponse (Sans objet compris).</param>
+/// <param name="QuestionCount">Nombre de questions du questionnaire.</param>
+public sealed record BiosecurityResult(
+    IReadOnlyList<SectionResult> Sections,
+    IReadOnlyList<BiosecurityQuestion> PriorityPractices,
+    int AnsweredCount = 0,
+    int QuestionCount = 0)
+{
+    /// <summary>Indice global : moyenne arrondie (AwayFromZero) des scores des rubriques évaluées ; <c>null</c> si aucune.</summary>
+    public int? OverallScore
+    {
+        get
+        {
+            var scores = Sections.Where(section => section.Score is not null).Select(section => section.Score!.Value).ToList();
+            return scores.Count == 0 ? null : (int)Math.Round(scores.Average(), MidpointRounding.AwayFromZero);
+        }
+    }
+
+    /// <summary>Niveau global : élevé dès qu'une rubrique l'est ; sinon selon l'indice (80 ou plus faible, 50 à 79 modéré).</summary>
+    public RiskLevel OverallLevel => OverallScore switch
+    {
+        null => RiskLevel.NotEvaluated,
+        _ when Sections.Any(section => section.Level == RiskLevel.High) => RiskLevel.High,
+        >= 80 => RiskLevel.Low,
+        >= 50 => RiskLevel.Moderate,
+        _ => RiskLevel.High,
+    };
+}
 
 /// <summary>Calcul du score de biosécurité (fonction pure, sans dépendance).</summary>
 public static class BiosecurityScore
@@ -52,7 +81,8 @@ public static class BiosecurityScore
             .Take(MaxPriorityPractices)
             .ToList();
 
-        return new BiosecurityResult(sections, priorityPractices);
+        var answered = questions.Count(question => answers.ContainsKey(question.Id));
+        return new BiosecurityResult(sections, priorityPractices, answered, questions.Count);
     }
 
     private static SectionResult ScoreSection(string section, IEnumerable<BiosecurityQuestion> questions, IReadOnlyDictionary<string, Answer> answers)

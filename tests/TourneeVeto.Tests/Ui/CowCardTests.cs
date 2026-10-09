@@ -199,4 +199,42 @@ public class CowCardTests : BunitContext
         Assert.Equal(["Dernier CCS", "Lactation"], cut.FindAll("dt").Select(dt => dt.TextContent));
         Assert.Equal(["112 k cellules/mL", "305 j"], cut.FindAll("dd").Select(dd => dd.TextContent));
     }
+
+    [Fact]
+    public void Identifiant_national_et_statut_du_motif_sont_affiches()
+    {
+        var cut = Render<CowCard>(parameters => parameters
+            .Add(p => p.Cow, DemoCow(lactation: 3))
+            .Add(p => p.Action, RegieAction.CalvingSoon)
+            .Add(p => p.Urgency, Urgency.Warning)
+            .Add(p => p.NationalId, "CA QC 0894 4812")
+            .Add(p => p.Statement, "Colostrum prêt."));
+
+        Assert.Equal("CA QC 0894 4812", cut.Find(".cow-card__national").TextContent);
+        Assert.Equal("Statut : Colostrum prêt.", cut.Find(".cow-card__statement").TextContent);
+    }
+
+    [Fact]
+    public void Sans_identifiant_ni_statut_rien_n_est_affiche()
+    {
+        var cut = Render<CowCard>(parameters => parameters
+            .Add(p => p.Cow, DemoCow(lactation: 3))
+            .Add(p => p.Action, RegieAction.DryOff)
+            .Add(p => p.Urgency, Urgency.Ok));
+
+        Assert.Empty(cut.FindAll(".cow-card__national"));
+        Assert.Empty(cut.FindAll(".cow-card__statement"));
+    }
+
+    [Fact]
+    public void Un_indicateur_en_alerte_est_signale()
+    {
+        var cut = Render<CowCard>(parameters => parameters
+            .Add(p => p.Cow, DemoCow(lactation: 2))
+            .Add(p => p.Action, RegieAction.HighScc)
+            .Add(p => p.Urgency, Urgency.Urgent)
+            .Add(p => p.Metrics, [new CowCardMetric("Cellules", "850k sp/mL", Alert: true), new CowCardMetric("Conductivité", "6,8 mS/cm")]));
+
+        Assert.Single(cut.FindAll(".cow-card__metric--alert"));
+    }
 }

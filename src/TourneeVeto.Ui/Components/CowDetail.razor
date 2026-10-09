@@ -1,62 +1,227 @@
 @using System.Globalization
+@using TourneeVeto.Domain.Herd
 @using TourneeVeto.Domain.Regie
+@using TourneeVeto.Domain.Showcase
+@using TourneeVeto.Domain.Visits
 @using TourneeVeto.Ui.Formatting
 
 @* Fiche de la vache sélectionnée dans la grille (panneau de droite de la maquette web/regie.png).
-   Motifs, urgence et jours viennent de DailyActions (TourneeVeto.Domain) ; ce composant ne fait que les afficher. *@
-<section class="root root--@Item.Urgency.ToString().ToLowerInvariant()" aria-labelledby="@TitleId">
-    <p class="eyebrow">Fiche de la vache</p>
-    <h2 class="title" id="@TitleId">
-        <span class="number">N° @Item.Cow.Id</span>
-        <span>@Item.Cow.Name</span>
-    </h2>
-    <p class="urgency">@RegieLabels.Urgency(Item.Urgency)</p>
+   Motifs, urgence et jours viennent de DailyActions et la fiche fictive de CowShowcaseBuilder (TourneeVeto.Domain) ;
+   ce composant ne fait que les afficher. *@
+<div class="stack">
+    <section class="card root root--@Item.Urgency.ToString().ToLowerInvariant()" aria-labelledby="@TitleId">
+        <div class="identity">
+            <p class="badge"><span class="badge-label">Boucle</span><strong class="badge-value">@Item.Cow.Id</strong></p>
+            <div class="identity-text">
+                <h2 class="title" id="@TitleId">@Item.Cow.Name</h2>
+                <p class="chips">
+                    <span class="chip chip--id">@Show.NationalId</span>
+                    <span class="chip chip--ok">@LactationChip</span>
+                    <span class="chip chip--urgency">@RegieLabels.Urgency(Item.Urgency)</span>
+                </p>
+                <p class="line">
+                    <span>Née le @Day(Item.Cow.BornOn) (@ShowcaseLabels.Age(Item.Cow.BornOn, Today))</span>
+                    <span>Père : @Show.Sire</span>
+                    <span>ISU : @Show.Isu</span>
+                    <span>Poids estimé : @Show.WeightKg kg</span>
+                </p>
+            </div>
+            <p class="production">
+                <span class="production-label">Production actuelle</span>
+                <span class="production-value">@(Show.ProductionKg is double kg ? kg.ToString("0.0", French) : "—")<span class="production-unit"> kg/j</span></span>
+                @if (Show.ProductionKg is not null)
+                {
+                    <span class="production-delta">@Signed(Show.ProductionDeltaKg) kg vs moy.</span>
+                }
+            </p>
+        </div>
 
-    @if (RegieLabels.Anomaly(Item.Anomaly) is { } anomaly)
-    {
-        <p class="anomaly">Anomalie : @anomaly</p>
-    }
+        @if (RegieLabels.Anomaly(Item.Anomaly) is { } anomaly)
+        {
+            <p class="anomaly">Anomalie : @anomaly</p>
+        }
 
-    <h3 class="section-title">Motifs de la visite</h3>
-    @if (Item.Motives.Count == 0)
-    {
-        <p class="empty">Aucun motif calculé : corriger la donnée signalée.</p>
-    }
-    else
-    {
-        <ul class="motives" role="list">
-            @foreach (var motive in Item.Motives)
+        <div class="tiles">
+            <InfoTileView Data="Show.Stage" />
+            <InfoTileView Data="Show.LastCalving" />
+            <InfoTileView Data="Show.SccBalance" />
+            <InfoTileView Data="Show.Delivery" />
+        </div>
+
+        <h3 class="section-title">Motifs de la visite</h3>
+        @if (Item.Motives.Count == 0)
+        {
+            <p class="empty">Aucun motif calculé : corriger la donnée signalée.</p>
+        }
+        else
+        {
+            <ul class="motives" role="list">
+                @foreach (var motive in Item.Motives)
+                {
+                    <li class="motive">
+                        <span class="motive-name">@RegieLabels.Action(motive.Action)</span>
+                        @if (RegieLabels.Due(motive) is { } due)
+                        {
+                            <span class="motive-due">@due</span>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <section class="card" aria-labelledby="@(TitleId)-watch">
+        <div class="watch-head">
+            <span class="watch-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M12 3v3M12 18v3M3 12h3M18 12h3" /><circle cx="12" cy="12" r="5" /></svg>
+            </span>
+            <div class="watch-text">
+                <h3 class="watch-title" id="@(TitleId)-watch">@Show.Surveillance.Title</h3>
+                <p class="watch-sub">@Show.Surveillance.Subtitle</p>
+            </div>
+            <span class="watch-badge">@Show.Surveillance.Badge</span>
+        </div>
+        <div class="tiles tiles--three">
+            @foreach (var tile in Show.Surveillance.Tiles)
             {
-                <li class="motive">
-                    <span class="motive-name">@RegieLabels.Action(motive.Action)</span>
-                    @if (RegieLabels.Due(motive) is { } due)
-                    {
-                        <span class="motive-due">@due</span>
-                    }
-                </li>
+                <InfoTileView Data="tile" />
             }
-        </ul>
-    }
+        </div>
 
-    <h3 class="section-title">Repères</h3>
-    <dl class="facts">
-        <div class="fact"><dt>Statut</dt><dd>@HerdLabels.Status(Item.Cow.Status)</dd></div>
-        <div class="fact"><dt>Lactation</dt><dd>@(Item.Cow.IsHeifer ? "Génisse" : $"Rang {Item.Cow.Lactation}")</dd></div>
-        <div class="fact"><dt>Née le</dt><dd>@Day(Item.Cow.BornOn)</dd></div>
-        <div class="fact"><dt>Dernier vêlage</dt><dd>@Day(Item.Cow.LastCalving)</dd></div>
-        <div class="fact"><dt>Dernière IA</dt><dd>@Day(Item.Cow.LastInsemination)</dd></div>
-        <div class="fact"><dt>Dernier CCS</dt><dd>@(Item.Cow.LastSccThousands is int scc ? $"{scc} k cellules/mL" : "Aucun contrôle")</dd></div>
-    </dl>
-</section>
+        <h3 class="acts-title" id="@(TitleId)-acts">Actes immédiats du praticien</h3>
+        @if (Outcomes is { Count: > 0 } && Item.Motives.Count > 0)
+        {
+            var action = Item.Motives[0].Action;
+            <div class="acts" role="group" aria-labelledby="@(TitleId)-acts">
+                @foreach (var option in Outcomes)
+                {
+                    <button type="button" class="act" aria-pressed="@(Outcome == option ? "true" : "false")" @onclick="@(() => OnOutcome.InvokeAsync(option))">
+                        @ResultLabels.For(action, option)
+                    </button>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="empty">Aucun acte à saisir pour cette vache aujourd'hui.</p>
+        }
+    </section>
+
+    <section class="card" aria-labelledby="@(TitleId)-history">
+        <div class="history-head">
+            <h3 class="watch-title" id="@(TitleId)-history">Historique sanitaire &amp; courbes de régie</h3>
+            <span class="chip chip--ok">Délai d'attente lait : 0 jour (indemne)</span>
+        </div>
+
+        <div class="chart-card">
+            <h4 class="chart-title">Évolution cellulaire (CCS) sur 6 mois</h4>
+            <p class="chart-sub">Seuil d'alerte à @(Show.SccAlertThousands)k sp/mL · données fictives</p>
+            <SccChart Points="Show.SccTrend" Threshold="Show.SccAlertThousands" />
+        </div>
+
+        <h4 class="table-title">Historique des 3 dernières interventions médicales</h4>
+        <div class="table-wrap">
+            <table class="interventions">
+                <caption class="sr">Trois dernières interventions médicales (fictives)</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Diagnostic / motif</th>
+                        <th scope="col">Molécule &amp; posologie</th>
+                        <th scope="col">Temps d'attente</th>
+                        <th scope="col">Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var intervention in Show.Interventions)
+                    {
+                        <tr>
+                            <th scope="row">@Day(intervention.Date)</th>
+                            <td>@intervention.Diagnosis</td>
+                            <td>@intervention.Molecule</td>
+                            <td>@intervention.WaitingTimes</td>
+                            <td><span class="chip chip--status">@intervention.Status</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (OnNoteChanged.HasDelegate)
+        {
+            <form class="note" @onsubmit="SaveDraftAsync" @onsubmit:preventDefault>
+                <button type="button" class="note-mic" aria-label="Dictée vocale (simulée)" @onclick="OnSimulate">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+                </button>
+                <label class="sr" for="@NoteId">Ajouter une observation</label>
+                <input class="note-input" id="@NoteId" type="text" maxlength="@CowVisitRecord.MaxNoteLength" autocomplete="off"
+                       placeholder="Ajouter une observation de régie (ex. : ligament relâché)" @bind="draft" @bind:event="oninput" />
+                <button type="submit" class="note-save">Enregistrer note</button>
+            </form>
+        }
+    </section>
+</div>
 
 @code {
-    private static readonly CultureInfo FrenchCanada = CultureInfo.GetCultureInfo("fr-CA");
+    private static readonly CultureInfo French = CultureInfo.GetCultureInfo("fr-CA");
+
+    private string draft = string.Empty;
+    private string? syncedNote;
+    private string? syncedCow;
 
     /// <summary>Ligne de la grille de régie calculée par le domaine.</summary>
     [Parameter, EditorRequired]
     public RegieItem Item { get; set; } = default!;
 
+    /// <summary>Fiche fictive de la vache (CowShowcaseBuilder).</summary>
+    [Parameter, EditorRequired]
+    public CowShowcase Show { get; set; } = default!;
+
+    /// <summary>Date du jour (TimeProvider de la page), pour l'âge de la vache.</summary>
+    [Parameter, EditorRequired]
+    public DateOnly Today { get; set; }
+
+    /// <summary>Résultats proposés pour le motif principal ; sans eux, aucun acte n'est saisissable.</summary>
+    [Parameter]
+    public IReadOnlyList<ResultOutcome>? Outcomes { get; set; }
+
+    /// <summary>Résultat déjà saisi pour le motif principal.</summary>
+    [Parameter]
+    public ResultOutcome? Outcome { get; set; }
+
+    [Parameter]
+    public EventCallback<ResultOutcome> OnOutcome { get; set; }
+
+    /// <summary>Note enregistrée de la vache pour cette visite.</summary>
+    [Parameter]
+    public string? Note { get; set; }
+
+    /// <summary>Déclenché par « Enregistrer note » ; sans abonné, le champ d'observation n'est pas affiché.</summary>
+    [Parameter]
+    public EventCallback<string> OnNoteChanged { get; set; }
+
+    /// <summary>Déclenché par les fonctions simulées (dictée vocale).</summary>
+    [Parameter]
+    public EventCallback OnSimulate { get; set; }
+
     private string TitleId => $"cow-detail-{Item.Cow.FarmId}-{Item.Cow.Id}";
 
-    private static string Day(DateOnly? date) => date?.ToString("d MMMM yyyy", FrenchCanada) ?? "—";
+    private string NoteId => $"{TitleId}-note";
+
+    private string LactationChip => Item.Cow.IsHeifer ? "Génisse" : $"L{Item.Cow.Lactation} en cours";
+
+    protected override void OnParametersSet()
+    {
+        // Le brouillon repart de la note enregistrée dès qu'on change de vache ou que la note change ailleurs (carte).
+        if (syncedCow != Item.Cow.Id || syncedNote != Note)
+        {
+            (syncedCow, syncedNote, draft) = (Item.Cow.Id, Note, Note ?? string.Empty);
+        }
+    }
+
+    private Task SaveDraftAsync() => OnNoteChanged.InvokeAsync(draft.Trim());
+
+    private static string Day(DateOnly date) => date.ToString("dd'/'MM'/'yyyy", French);
+
+    private static string Signed(double value) => value >= 0 ? $"+{value.ToString("0.0", French)}" : $"−{(-value).ToString("0.0", French)}";
 }
